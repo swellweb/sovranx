@@ -10,7 +10,11 @@ target_link_libraries(sovrano_utils PUBLIC sovrano_flags Threads::Threads)
 
 # Core: LlamaModel wrapper. llama.cpp is confined to llama_backend_real.cpp;
 # without the submodule a stub backend keeps the build green.
-add_library(sovrano_core STATIC core/model.cpp)
+add_library(sovrano_core STATIC
+    core/model.cpp
+    core/sampler.cpp
+    core/engine.cpp
+)
 target_include_directories(sovrano_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(sovrano_core
     PUBLIC sovrano_utils

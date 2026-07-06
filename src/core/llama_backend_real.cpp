@@ -109,10 +109,44 @@ public:
         return text;
     }
 
-    std::vector<float> decode(const std::vector<TokenId>& tokens) override {
-        // Fresh sequence per call: clear the KV cache from prior forwards.
-        llama_memory_clear(llama_get_memory(ctx_), /*data=*/true);
+    std::string token_piece(TokenId token) override {
+        char buf[128];
+        int32_t n = llama_token_to_piece(vocab_, token, buf, sizeof(buf),
+                                         /*lstrip=*/0, /*special=*/false);
+        if (n >= 0) return std::string(buf, static_cast<std::size_t>(n));
 
+        // Piece longer than the stack buffer: retry with the exact size.
+        std::string piece(static_cast<std::size_t>(-n), '\0');
+        n = llama_token_to_piece(vocab_, token, piece.data(),
+                                 static_cast<int32_t>(piece.size()),
+                                 /*lstrip=*/0, /*special=*/false);
+        if (n < 0)
+            throw ModelError("token_to_piece failed for token " +
+                             std::to_string(token));
+        piece.resize(static_cast<std::size_t>(n));
+        return piece;
+    }
+
+    std::vector<float> decode(const std::vector<TokenId>& tokens) override {
+        // Fresh sequence: clear the KV cache from prior forwards.
+        llama_memory_clear(llama_get_memory(ctx_), /*data=*/true);
+        return decode_impl(tokens);
+    }
+
+    std::vector<float> decode_append(const std::vector<TokenId>& tokens) override {
+        return decode_impl(tokens);  // KV cache kept, positions auto-tracked
+    }
+
+    std::int32_t vocab_size() const override {
+        return llama_vocab_n_tokens(vocab_);
+    }
+
+    std::uint32_t context_length() const override { return llama_n_ctx(ctx_); }
+
+    TokenId eos_token() const override { return llama_vocab_eos(vocab_); }
+
+private:
+    std::vector<float> decode_impl(const std::vector<TokenId>& tokens) {
         // llama_batch_get_one does not take ownership but wants mutable data.
         std::vector<TokenId> input = tokens;
         llama_batch batch =
@@ -132,13 +166,6 @@ public:
         return std::vector<float>(logits, logits + n_vocab);
     }
 
-    std::int32_t vocab_size() const override {
-        return llama_vocab_n_tokens(vocab_);
-    }
-
-    std::uint32_t context_length() const override { return llama_n_ctx(ctx_); }
-
-private:
     llama_model* model_ = nullptr;
     llama_context* ctx_ = nullptr;
     const llama_vocab* vocab_ = nullptr;

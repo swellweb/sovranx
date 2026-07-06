@@ -33,6 +33,23 @@ brew install cmake boost nlohmann-json zstd pkg-config
 Se le dipendenze server mancano, il build le segnala e disabilita il target
 server (equivalente a `--no-server`).
 
+## Setup iniziale
+
+```bash
+git clone <repo-url> && cd Sovrano
+git submodule update --init --depth 1 third_party/llama.cpp
+```
+
+Senza il submodule il progetto compila comunque (warning a configure-time),
+ma il caricamento modelli fallisce a runtime con messaggio esplicativo.
+
+Modelli di test (GGUF, in `models/`, gitignorata):
+
+```bash
+./scripts/download_models.sh        # TinyLlama 1.1B (~670 MB, per i test)
+./scripts/download_models.sh --7b   # + Qwen2.5 7B (~4.7 GB)
+```
+
 ## Compilazione
 
 ```bash
@@ -73,13 +90,16 @@ Sovrano/
 │   └── utils/              # Config, Logger
 ├── src/
 │   ├── main.cpp            # entry point
-│   ├── core/               # engine di inferenza (prossimi step)
+│   ├── core/               # LlamaModel + backend llama.cpp (reale/stub)
 │   ├── speculative/        # speculative decoding (prossimi step)
 │   ├── memory/             # ottimizzazioni memoria (prossimi step)
 │   ├── server/             # server HTTP (prossimi step)
 │   └── utils/              # config parser, logger
-├── tests/unit/             # test isolati (Catch2)
-└── third_party/            # dipendenze vendorizzate (llama.cpp, prossimi step)
+├── tests/
+│   ├── unit/               # test isolati (Catch2)
+│   └── mock/               # MockBackend (llama.cpp mockato)
+├── scripts/                # download_models.sh
+└── third_party/llama.cpp   # submodule (pinnato)
 ```
 
 ## Sviluppo (TDD)

@@ -9,7 +9,8 @@ Combina due tecniche:
    piccolo propone token, il modello target 30B li verifica in un singolo
    passaggio batched.
 2. **Ottimizzazioni memoria** (ispirato a DwarfStar4/antirez): mmap del
-   modello, quantizzazione della KV-cache, cap sulla RAM.
+   modello, KV-cache persistente su NVMe (zstd + checksum + LRU) con riuso
+   dei prefissi di prompt tra riavvii, cap sulla RAM.
 
 ## Stack
 
@@ -93,6 +94,7 @@ Sovrano/
 │   ├── main.cpp            # entry point
 │   ├── core/               # LlamaModel, engine, sampler, backend llama.cpp
 │   ├── speculative/        # draft generator, batch verifier, decoder
+│   ├── cache/              # KV-cache su NVMe: serializer, store LRU, manager
 │   ├── memory/             # ottimizzazioni memoria (prossimi step)
 │   ├── server/             # server HTTP (prossimi step)
 │   └── utils/              # config parser, logger

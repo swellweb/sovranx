@@ -52,6 +52,15 @@ public:
     // Clears the sequence entirely (KV cache + position counter).
     virtual void reset() = 0;
 
+    // Full model state snapshot (RNG, logits, KV cache) as an opaque blob.
+    virtual std::vector<char> state_data() = 0;
+
+    // Restores a snapshot produced by state_data(). The blob does not
+    // carry the wrapper's position counter, so callers must say how many
+    // sequence positions it represents.
+    virtual void set_state(const std::vector<char>& data,
+                           std::uint32_t n_past) = 0;
+
     // Number of positions currently stored in the sequence.
     virtual std::uint32_t n_past() const = 0;
 

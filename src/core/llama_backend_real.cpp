@@ -158,6 +158,27 @@ public:
 
     std::uint32_t n_past() const override { return n_past_; }
 
+    std::vector<char> state_data() override {
+        const std::size_t size = llama_state_get_size(ctx_);
+        std::vector<char> data(size);
+        const std::size_t written = llama_state_get_data(
+            ctx_, reinterpret_cast<uint8_t*>(data.data()), size);
+        if (written == 0)
+            throw ModelError("llama_state_get_data failed");
+        data.resize(written);
+        return data;
+    }
+
+    void set_state(const std::vector<char>& data,
+                   std::uint32_t n_past) override {
+        const std::size_t read = llama_state_set_data(
+            ctx_, reinterpret_cast<const uint8_t*>(data.data()), data.size());
+        if (read == 0)
+            throw ModelError("llama_state_set_data failed (incompatible or "
+                             "truncated state blob)");
+        n_past_ = n_past;
+    }
+
     std::int32_t vocab_size() const override {
         return llama_vocab_n_tokens(vocab_);
     }

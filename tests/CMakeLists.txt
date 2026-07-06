@@ -15,6 +15,7 @@ add_executable(sovrano_tests
     unit/test_sampler.cpp
     unit/test_engine.cpp
     unit/test_speculative.cpp
+    unit/test_cache.cpp
 )
 target_link_libraries(sovrano_tests PRIVATE
     sovrano_core

@@ -47,6 +47,14 @@ public:
         bool use_mlock = false;
         bool use_speculative = true;
         int draft_tokens = 16;  // starting speculative draft length
+        // KV-cache persistence (DwarfStar4-style). Empty = disabled. When
+        // set, prompt prefixes are snapshotted to disk and reused across
+        // engines/processes, and sessions restore from disk instead of
+        // re-prefilling. Applies to the classic path (the speculative
+        // decoder manages its own prefill).
+        std::string cache_dir;
+        std::uint64_t cache_max_mb = 512;  // 0 = unlimited
+        bool cache_compress = true;
         bool verbose = false;
     };
 

@@ -53,17 +53,22 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Dependencies (server-side; core builds without them)
+# Dependencies. zstd is used by the KV-cache persistence (optional: without
+# it, cache entries are stored uncompressed); Boost/json are server-only.
 # ---------------------------------------------------------------------------
 find_package(Threads REQUIRED)
+
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(ZSTD QUIET IMPORTED_TARGET libzstd)
+endif()
+if(NOT ZSTD_FOUND)
+    message(STATUS "zstd not found - KV cache will be stored uncompressed")
+endif()
 
 if(SOVRANO_BUILD_SERVER)
     find_package(Boost 1.74 QUIET COMPONENTS system)
     find_package(nlohmann_json 3.10 QUIET)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(ZSTD QUIET IMPORTED_TARGET libzstd)
-    endif()
 
     if(NOT Boost_FOUND OR NOT nlohmann_json_FOUND OR NOT ZSTD_FOUND)
         message(WARNING

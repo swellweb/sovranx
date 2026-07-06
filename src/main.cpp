@@ -91,6 +91,10 @@ int main(int argc, char** argv) {
             cfg.get_string("speculative.draft_model_path", "");
         engine_cfg.draft_tokens =
             static_cast<int>(cfg.get_int("speculative.draft_tokens", 16));
+        engine_cfg.cache_dir = cfg.get_string("cache.directory", "");
+        engine_cfg.cache_max_mb = static_cast<std::uint64_t>(
+            cfg.get_int("cache.max_size_mb", 512));
+        engine_cfg.cache_compress = cfg.get_bool("cache.compress", true);
 
         log.info("loading model...");
         sovrano::core::SovranoEngine engine(engine_cfg);

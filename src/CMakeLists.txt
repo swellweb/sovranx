@@ -18,12 +18,21 @@ add_library(sovrano_core STATIC
     speculative/draft_generator.cpp
     speculative/batch_verifier.cpp
     speculative/speculative_decoder.cpp
+    cache/cache_serializer.cpp
+    cache/disk_cache_store.cpp
+    cache/cache_manager.cpp
 )
 target_include_directories(sovrano_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(sovrano_core
     PUBLIC sovrano_utils
     PRIVATE sovrano_flags
 )
+
+if(ZSTD_FOUND)
+    target_link_libraries(sovrano_core PRIVATE PkgConfig::ZSTD)
+    # PUBLIC: tests gate the zstd-specific expectations on this macro.
+    target_compile_definitions(sovrano_core PUBLIC SOVRANO_HAS_ZSTD=1)
+endif()
 
 if(SOVRANO_HAS_LLAMA)
     target_sources(sovrano_core PRIVATE core/llama_backend_real.cpp)

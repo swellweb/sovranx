@@ -49,6 +49,10 @@ public:
     std::vector<std::vector<TokenId>> decode_batch_calls;
     std::vector<std::uint32_t> truncate_calls;
     int reset_calls = 0;
+    // State snapshot support (cache tests).
+    std::vector<char> state_data_result = {'s', 't', 'a', 't', 'e'};
+    int state_data_calls = 0;
+    std::vector<std::pair<std::vector<char>, std::uint32_t>> set_state_calls;
 
     std::vector<TokenId> tokenize(const std::string& text,
                                   bool add_special) override {
@@ -105,6 +109,17 @@ public:
     void reset() override {
         ++reset_calls;
         n_past_value = 0;
+    }
+
+    std::vector<char> state_data() override {
+        ++state_data_calls;
+        return state_data_result;
+    }
+
+    void set_state(const std::vector<char>& data,
+                   std::uint32_t n_past) override {
+        set_state_calls.emplace_back(data, n_past);
+        n_past_value = n_past;
     }
 
     std::uint32_t n_past() const override { return n_past_value; }

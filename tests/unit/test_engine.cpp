@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -307,6 +308,119 @@ TEST_CASE("sessions: unknown or deleted ids throw") {
 }
 
 // ---------------------------------------------------------------------------
+// Prompt cache
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct CacheTempDir {
+    std::filesystem::path path;
+    CacheTempDir() {
+        path = std::filesystem::temp_directory_path() /
+               ("sovrano-engine-cache-" + std::to_string(counter++));
+        std::filesystem::remove_all(path);
+        std::filesystem::create_directories(path);
+    }
+    ~CacheTempDir() { std::filesystem::remove_all(path); }
+    static int counter;
+};
+int CacheTempDir::counter = 0;
+
+// Prompt tokenizes to {1, 2}; the model then emits "tok" (3) and EOS (4).
+// `with_prefill_logits` adds the entry consumed by the cold prompt prefill.
+void script_cached(MockBackend* m, bool with_prefill_logits) {
+    m->vocab_size_value = 5;
+    m->eos_token_value = 4;
+    m->tokenize_result = {1, 2};
+    m->piece_map = {{3, "tok"}};
+    if (with_prefill_logits) m->decode_queue.push_back(peak(5, 0));  // filler
+    m->decode_queue.push_back(peak(5, 3));
+    m->decode_queue.push_back(peak(5, 4));
+}
+
+}  // namespace
+
+TEST_CASE("prompt cache: cold run snapshots the prefix, warm run skips prefill") {
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+
+    // Cold: prefix {1} decoded, state stored, then generation.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/true);
+        mock->state_data_result = {'S', '1'};
+
+        SovranoEngine engine(cfg, std::move(backend));
+        CHECK(engine.generate("hi", greedy()) == "tok");
+
+        CHECK(mock->reset_calls == 1);
+        CHECK(mock->state_data_calls == 1);       // snapshot taken
+        CHECK(mock->decode_calls.empty());        // split prefill, no decode()
+        REQUIRE(mock->decode_append_calls.size() == 3);
+        CHECK(mock->decode_append_calls[0] == std::vector<TokenId>{1});
+        CHECK(mock->decode_append_calls[1] == std::vector<TokenId>{2});
+    }
+
+    // Warm: fresh engine + backend, same cache dir -> state restored, the
+    // prefix is never decoded again.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/false);
+
+        SovranoEngine engine(cfg, std::move(backend));
+        CHECK(engine.generate("hi", greedy()) == "tok");
+
+        REQUIRE(mock->set_state_calls.size() == 1);
+        CHECK(mock->set_state_calls[0].first == std::vector<char>{'S', '1'});
+        CHECK(mock->set_state_calls[0].second == 1);  // prefix length
+        CHECK(mock->state_data_calls == 0);           // hit: nothing stored
+        REQUIRE(mock->decode_append_calls.size() == 2);
+        CHECK(mock->decode_append_calls[0] == std::vector<TokenId>{2});
+        CHECK(mock->decode_append_calls[1] == std::vector<TokenId>{3});
+    }
+}
+
+TEST_CASE("sessions: with a cache dir, load restores the snapshot instead of re-prefilling") {
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_cached(mock, true);
+    mock->state_data_result = {'K', 'V'};
+
+    SovranoEngine engine(cfg, std::move(backend));
+    engine.generate("hi", greedy());  // context: {1, 2, 3}
+
+    const auto id = engine.create_session();
+    engine.save_session(id);
+
+    mock->decode_calls.clear();
+    mock->set_state_calls.clear();
+    engine.load_session(id);
+
+    // Snapshot restored; no re-prefill decode.
+    REQUIRE(mock->set_state_calls.size() == 1);
+    CHECK(mock->set_state_calls[0].first == std::vector<char>{'K', 'V'});
+    CHECK(mock->set_state_calls[0].second == 3);
+    CHECK(mock->decode_calls.empty());
+}
+
+TEST_CASE("without a cache dir the classic prefill path is unchanged") {
+    auto [engine, mock] = make_engine();
+    script_foobar(mock);
+
+    CHECK(engine.generate("hi", greedy()) == "foobar");
+    CHECK(mock->state_data_calls == 0);
+    CHECK(mock->set_state_calls.empty());
+    REQUIRE(mock->decode_calls.size() == 1);  // single full-prompt prefill
+}
+
+// ---------------------------------------------------------------------------
 // Integration (real llama.cpp + TinyLlama). SKIPs when unavailable.
 // ---------------------------------------------------------------------------
 
@@ -322,6 +436,45 @@ bool file_exists(const std::string& path) {
 }
 
 }  // namespace
+
+TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
+          "[integration]") {
+#ifndef SOVRANO_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    CacheTempDir dir;
+    SovranoEngine::Config cfg;
+    cfg.model_path = path;
+    cfg.n_ctx = 256;
+    cfg.n_threads = 4;
+    cfg.cache_dir = dir.path.string();
+
+    const std::string prompt =
+        "The lighthouse keeper counted the ships as they passed: first";
+
+    std::string cold, warm;
+    {
+        SovranoEngine engine(cfg);
+        cold = engine.generate(prompt, greedy(8));
+    }
+    // A snapshot landed on disk.
+    CHECK(std::filesystem::directory_iterator(dir.path) !=
+          std::filesystem::directory_iterator{});
+    {
+        SovranoEngine engine(cfg);  // fresh process-equivalent, same cache
+        warm = engine.generate(prompt, greedy(8));
+    }
+
+    CHECK(!cold.empty());
+    // Same split-prefill code path cold and warm -> identical numerics.
+    CHECK(warm == cold);
+#endif
+}
 
 TEST_CASE("[integration] engine generates deterministic greedy text",
           "[integration]") {

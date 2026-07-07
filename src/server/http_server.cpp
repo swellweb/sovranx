@@ -3,9 +3,9 @@
 #include <boost/asio.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <iostream>
 #include <thread>
-#include <vector>
 
 #include "sovrano/server/api_handler.hpp"
 #include "sovrano/server/http_types.hpp"
@@ -73,8 +73,9 @@ struct HttpServer::Impl {
 
     asio::io_context io;
     std::unique_ptr<tcp::acceptor> acceptor;
-    std::vector<std::thread> threads;
+    std::thread accept_thread;
     std::atomic<bool> running{false};
+    std::atomic<int> active_connections{0};
     int bound_port = 0;
 
     Impl(Config c, std::shared_ptr<core::SovranoEngine> e)
@@ -92,6 +93,11 @@ struct HttpServer::Impl {
               }(),
               *engine) {}
 
+    // Exactly ONE thread runs this: a blocking Asio acceptor is not safe
+    // to share across threads (hangs observed on Linux). Each accepted
+    // connection is handled in a detached worker so a long generation
+    // never blocks the accept loop; workers are counted so stop() can
+    // drain them.
     void accept_loop() {
         while (running.load()) {
             tcp::socket socket(io);
@@ -102,7 +108,11 @@ struct HttpServer::Impl {
                     log.warn(std::string("accept failed: ") + ec.message());
                 continue;
             }
-            handle_connection(std::move(socket));
+            ++active_connections;
+            std::thread([this](tcp::socket s) {
+                handle_connection(std::move(s));
+                --active_connections;
+            }, std::move(socket)).detach();
         }
     }
 
@@ -211,9 +221,7 @@ void HttpServer::start() {
     impl.bound_port = impl.acceptor->local_endpoint().port();
     impl.running.store(true);
 
-    const int n_threads = std::max(1, impl.cfg.threads);
-    for (int i = 0; i < n_threads; ++i)
-        impl.threads.emplace_back([this] { pimpl_->accept_loop(); });
+    impl.accept_thread = std::thread([this] { pimpl_->accept_loop(); });
 
     impl.log.info("sovrano server listening on " + impl.cfg.host + ":" +
                   std::to_string(impl.bound_port));
@@ -224,9 +232,11 @@ void HttpServer::stop() {
     if (!impl.running.exchange(false)) return;
     boost::system::error_code ec;
     if (impl.acceptor != nullptr) impl.acceptor->close(ec);
-    for (auto& t : impl.threads)
-        if (t.joinable()) t.join();
-    impl.threads.clear();
+    if (impl.accept_thread.joinable()) impl.accept_thread.join();
+    // Drain detached connection workers (they reference this Impl) with a
+    // bounded wait: generations already in flight get up to 30s.
+    for (int i = 0; i < 600 && impl.active_connections.load() > 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 bool HttpServer::is_running() const { return pimpl_->running.load(); }

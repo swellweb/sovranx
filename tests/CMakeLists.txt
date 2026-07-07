@@ -36,4 +36,6 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 # Catch2 exits with 4 when a test SKIPs (e.g. integration test without a
 # downloaded model); tell ctest that means "skipped", not "failed".
-catch_discover_tests(sovrano_tests PROPERTIES SKIP_RETURN_CODE 4)
+# TIMEOUT turns a hang (e.g. a stuck socket test) into a failure instead
+# of blocking the suite indefinitely.
+catch_discover_tests(sovrano_tests PROPERTIES SKIP_RETURN_CODE 4 TIMEOUT 300)

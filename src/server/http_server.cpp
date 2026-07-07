@@ -93,21 +93,27 @@ struct HttpServer::Impl {
               }(),
               *engine) {}
 
-    // Exactly ONE thread runs this: a blocking Asio acceptor is not safe
-    // to share across threads (hangs observed on Linux). Each accepted
-    // connection is handled in a detached worker so a long generation
-    // never blocks the accept loop; workers are counted so stop() can
-    // drain them.
+    // Exactly ONE thread runs this. The accept is NON-blocking with a
+    // short poll: on Linux, close()ing the acceptor does not wake a thread
+    // blocked inside accept(), so stop() would hang forever on the join.
+    // Each accepted connection is handled in a detached worker so a long
+    // generation never blocks the accept loop; workers are counted so
+    // stop() can drain them.
     void accept_loop() {
         while (running.load()) {
             tcp::socket socket(io);
             boost::system::error_code ec;
             acceptor->accept(socket, ec);
+            if (ec == asio::error::would_block || ec == asio::error::try_again) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                continue;
+            }
             if (ec) {
                 if (running.load())
                     log.warn(std::string("accept failed: ") + ec.message());
                 continue;
             }
+            socket.non_blocking(false, ec);  // workers use blocking reads
             ++active_connections;
             std::thread([this](tcp::socket s) {
                 handle_connection(std::move(s));
@@ -219,6 +225,7 @@ void HttpServer::start() {
         impl.io, tcp::endpoint(address,
                                static_cast<unsigned short>(impl.cfg.port)));
     impl.bound_port = impl.acceptor->local_endpoint().port();
+    impl.acceptor->non_blocking(true);
     impl.running.store(true);
 
     impl.accept_thread = std::thread([this] { pimpl_->accept_loop(); });

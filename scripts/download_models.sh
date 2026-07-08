@@ -39,9 +39,14 @@ fi
 
 if [[ "${1:-}" == "--7b" ]]; then
     # Qwen2.5 7B Instruct Q4_K_M (~4.7 GB) - intermediate testing.
+    # The HF repo ships it split in two parts; llama.cpp loads the split
+    # set when pointed at the first file.
     download \
-        "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf" \
-        "qwen2.5-7b-instruct-q4_k_m.gguf"
+        "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf" \
+        "qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf"
+    download \
+        "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf" \
+        "qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf"
 fi
 
 echo

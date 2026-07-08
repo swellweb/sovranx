@@ -214,13 +214,66 @@ TEST_CASE("verifier accepts everything when the target agrees") {
 // SpeculativeDecoder
 // ---------------------------------------------------------------------------
 
-TEST_CASE("decoder rejects mismatched vocabularies") {
+TEST_CASE("decoder rejects vocabularies differing by more than the padding tolerance") {
     MockBackend target, draft;
     setup(target);
     setup(draft);
-    draft.vocab_size_value = 7;
+    draft.vocab_size_value = static_cast<std::int32_t>(kVocab) + 129;
 
     CHECK_THROWS_AS(SpeculativeDecoder(target, &draft, {}), EngineError);
+}
+
+TEST_CASE("decoder tolerates small vocab padding differences (Qwen 7B vs 0.5B)") {
+    // Qwen2.5-7B has 152064 entries, the 0.5B draft 151936: the extra 128
+    // are unused padding. Same shape here at mock scale: target one entry
+    // larger than the draft.
+    MockBackend target, draft;
+    setup(target);
+    setup(draft);
+    target.vocab_size_value = static_cast<std::int32_t>(kVocab) + 1;
+
+    SpeculativeDecoder::Config cfg;
+    cfg.draft_tokens = 2;
+    cfg.min_draft_tokens = 2;
+    cfg.max_draft_tokens = 2;
+
+    // Draft (vocab 6) proposes {1, 2}; target (vocab 7) agrees, then EOS.
+    draft.decode_queue = {peak(kVocab, 1), peak(kVocab, 2), peak(kVocab, kEos)};
+    target.decode_batch_queue = {{peak(kVocab + 1, 1), peak(kVocab + 1, 2)},
+                                 {peak(kVocab + 1, kEos)}};
+
+    SpeculativeDecoder decoder(target, &draft, cfg);
+    const auto out = decoder.generate({0}, greedy());
+
+    CHECK(out == std::vector<TokenId>{1, 2});
+    CHECK(decoder.speculative_active());
+}
+
+TEST_CASE("decoder falls back to plain when a token outside the draft vocab is emitted") {
+    MockBackend target, draft;
+    setup(target);
+    setup(draft);
+    target.vocab_size_value = static_cast<std::int32_t>(kVocab) + 1;
+
+    SpeculativeDecoder::Config cfg;
+    cfg.draft_tokens = 2;
+    cfg.min_draft_tokens = 2;
+    cfg.max_draft_tokens = 2;
+
+    // Draft proposes {1}; target instead wants token 6 — valid for the
+    // target but OUTSIDE the draft's vocabulary. The decoder must emit it
+    // and then stop speculating (the draft cannot ingest that token).
+    draft.decode_queue = {peak(kVocab, 1)};
+    draft.decode_result = peak(kVocab, 1);
+    target.decode_batch_queue = {{peak(kVocab + 1, kVocab)}};
+    // Plain continuation after the fallback: EOS.
+    target.decode_queue = {peak(kVocab + 1, kEos)};
+
+    SpeculativeDecoder decoder(target, &draft, cfg);
+    const auto out = decoder.generate({0}, greedy());
+
+    CHECK(out == std::vector<TokenId>{static_cast<TokenId>(kVocab)});
+    CHECK_FALSE(decoder.speculative_active());
 }
 
 TEST_CASE("decoder: accept-all then EOS-correction, with metrics") {

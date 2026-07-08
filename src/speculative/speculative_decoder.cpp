@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <utility>
 
 #include "sovrano/core/sampler.hpp"
@@ -28,12 +29,20 @@ SpeculativeDecoder::SpeculativeDecoder(LlamaBackend& target,
       current_draft_tokens_(std::clamp(cfg.draft_tokens, cfg.min_draft_tokens,
                                        cfg.max_draft_tokens)),
       speculative_active_(draft != nullptr && cfg.use_speculative) {
-    if (draft != nullptr && draft->vocab_size() != target.vocab_size())
-        throw core::EngineError(
-            "draft and target vocabularies differ (" +
-            std::to_string(draft->vocab_size()) + " vs " +
-            std::to_string(target.vocab_size()) +
-            "): speculative decoding requires a shared tokenizer");
+    if (draft != nullptr) {
+        // Same tokenizer required, but model families pad the embedding
+        // table differently (Qwen2.5-7B: 152064, 0.5B: 151936). Tolerate
+        // up to 128 entries of padding, like llama.cpp's speculative
+        // example; the guard in the generation loop handles the rare case
+        // of an emitted token outside the draft's table.
+        const int diff = std::abs(draft->vocab_size() - target.vocab_size());
+        if (diff > 128)
+            throw core::EngineError(
+                "draft and target vocabularies differ (" +
+                std::to_string(draft->vocab_size()) + " vs " +
+                std::to_string(target.vocab_size()) +
+                "): speculative decoding requires a shared tokenizer");
+    }
 }
 
 std::vector<TokenId> SpeculativeDecoder::generate(
@@ -106,7 +115,16 @@ void SpeculativeDecoder::generate_stream(
     const auto max_tokens = static_cast<std::size_t>(
         std::max(gen_config.max_tokens, 0));
 
+    const TokenId draft_vocab =
+        draft_ != nullptr ? draft_->vocab_size() : 0;
+
     while (emitted < max_tokens && history.size() < n_ctx) {
+        // A token beyond the draft's (smaller, padding-trimmed) vocabulary
+        // cannot be fed back to the draft model: finish the generation on
+        // the plain path.
+        if (speculative_active_ && cur >= draft_vocab)
+            speculative_active_ = false;
+
         if (speculative_active_) {
             // ---- Draft rollout ----
             const int room = static_cast<int>(n_ctx - history.size());

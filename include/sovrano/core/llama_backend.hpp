@@ -11,6 +11,13 @@ using TokenId = std::int32_t;
 
 struct ModelParams;
 
+// One sequence's contribution to a multi-sequence batch.
+struct SeqSlice {
+    std::int32_t seq_id = 0;
+    std::vector<TokenId> tokens;  // tokens to decode for this sequence
+    std::uint32_t pos_start = 0;  // position of tokens[0] within the seq
+};
+
 // Seam between LlamaModel and llama.cpp. The real implementation
 // (llama_backend_real.cpp) talks to the llama C API; tests inject a mock.
 // Implementations own the underlying model/context and release them on
@@ -48,6 +55,19 @@ public:
     // KV entries of everything after). Used to discard rejected draft
     // tokens.
     virtual void truncate_to(std::uint32_t n_tokens) = 0;
+
+    // ---- Multi-sequence (interleaved multi-user) support ----------------
+    // Decodes several sequences' tokens in ONE forward pass: the model
+    // weights are read once for the whole batch, which on memory-bound
+    // CPUs makes N concurrent generations cost far less than N sequential
+    // ones. Returns the last-token logits of each slice, in input order.
+    // Requires the context to be created with n_seq_max > 1
+    // (ModelParams::n_seq_max).
+    virtual std::vector<std::vector<float>> decode_seqs(
+        const std::vector<SeqSlice>& slices) = 0;
+
+    // Drops one sequence's KV cache entirely (request finished).
+    virtual void clear_seq(std::int32_t seq_id) = 0;
 
     // Clears the sequence entirely (KV cache + position counter).
     virtual void reset() = 0;

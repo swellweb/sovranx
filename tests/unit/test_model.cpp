@@ -5,6 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <memory>
@@ -226,6 +227,62 @@ bool file_exists(const std::string& path) {
 }
 
 }  // namespace
+
+TEST_CASE("[integration] multi-sequence decode matches sequential decodes",
+          "[integration]") {
+#ifndef SOVRANO_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    ModelParams p;
+    p.path = path;
+    p.context_length = 512;
+    p.threads = 4;
+
+    // Reference: two prompts decoded sequentially, single-sequence.
+    auto ref = sovrano::make_llama_backend(p);
+    const auto prompt_a = ref->tokenize("The capital of Italy is", true);
+    const auto prompt_b = ref->tokenize("Water boils at a temperature of", true);
+    const auto ref_a = ref->decode(prompt_a);
+    const auto ref_b = ref->decode(prompt_b);
+
+    // Same two prompts as ONE interleaved multi-seq batch.
+    auto pp = p;
+    pp.n_seq_max = 2;
+    auto multi = sovrano::make_llama_backend(pp);
+    const auto outs = multi->decode_seqs({{0, prompt_a, 0}, {1, prompt_b, 0}});
+
+    REQUIRE(outs.size() == 2);
+    // Same argmax as the sequential reference (bitwise logits may differ
+    // slightly across batch layouts; the chosen token must not).
+    const auto argmax = [](const std::vector<float>& v) {
+        return std::distance(v.begin(),
+                             std::max_element(v.begin(), v.end()));
+    };
+    CHECK(argmax(outs[0]) == argmax(ref_a));
+    CHECK(argmax(outs[1]) == argmax(ref_b));
+
+    // Sequences continue independently: one more token each, then drop
+    // seq 0 and keep decoding seq 1.
+    const auto ta = static_cast<TokenId>(argmax(outs[0]));
+    const auto tb = static_cast<TokenId>(argmax(outs[1]));
+    const auto next = multi->decode_seqs(
+        {{0, {ta}, static_cast<std::uint32_t>(prompt_a.size())},
+         {1, {tb}, static_cast<std::uint32_t>(prompt_b.size())}});
+    REQUIRE(next.size() == 2);
+
+    multi->clear_seq(0);
+    const auto tb2 = static_cast<TokenId>(argmax(next[1]));
+    const auto solo = multi->decode_seqs(
+        {{1, {tb2}, static_cast<std::uint32_t>(prompt_b.size()) + 1}});
+    REQUIRE(solo.size() == 1);
+    REQUIRE(solo[0].size() == static_cast<std::size_t>(multi->vocab_size()));
+#endif
+}
 
 TEST_CASE("[integration] real model: tokenize round-trip and forward pass",
           "[integration]") {

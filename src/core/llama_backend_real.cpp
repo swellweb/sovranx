@@ -58,6 +58,8 @@ public:
         // where the build supports it and errors clearly otherwise.
         if (params.kv_cache_type != "f16")
             cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+        if (params.n_seq_max > 1)
+            cparams.n_seq_max = static_cast<uint32_t>(params.n_seq_max);
 
         ctx_ = llama_init_from_model(model_, cparams);
         if (ctx_ == nullptr) {
@@ -150,6 +152,55 @@ public:
     std::vector<std::vector<float>> decode_batch(
         const std::vector<TokenId>& tokens) override {
         return decode_impl(tokens, /*all_logits=*/true);
+    }
+
+    std::vector<std::vector<float>> decode_seqs(
+        const std::vector<SeqSlice>& slices) override {
+        std::int32_t total = 0;
+        for (const auto& s : slices)
+            total += static_cast<std::int32_t>(s.tokens.size());
+        if (total == 0) throw ModelError("decode_seqs with no tokens");
+
+        llama_batch batch = llama_batch_init(total, /*embd=*/0,
+                                             /*n_seq_max=*/1);
+        batch.n_tokens = total;
+        std::vector<std::int32_t> slice_end(slices.size());
+        std::int32_t i = 0;
+        for (std::size_t si = 0; si < slices.size(); ++si) {
+            const auto& s = slices[si];
+            for (std::size_t t = 0; t < s.tokens.size(); ++t, ++i) {
+                batch.token[i] = s.tokens[t];
+                batch.pos[i] =
+                    static_cast<llama_pos>(s.pos_start + t);
+                batch.n_seq_id[i] = 1;
+                batch.seq_id[i][0] = s.seq_id;
+                batch.logits[i] =
+                    static_cast<int8_t>(t + 1 == s.tokens.size());
+            }
+            slice_end[si] = i - 1;
+        }
+
+        const int32_t rc = llama_decode(ctx_, batch);
+        llama_batch_free(batch);
+        if (rc != 0)
+            throw ModelError("llama_decode (multi-seq) failed with status " +
+                             std::to_string(rc));
+
+        const auto n_vocab = static_cast<std::size_t>(vocab_size());
+        std::vector<std::vector<float>> out;
+        out.reserve(slices.size());
+        for (const auto end : slice_end) {
+            const float* logits = llama_get_logits_ith(ctx_, end);
+            if (logits == nullptr)
+                throw ModelError("no logits at multi-seq batch position " +
+                                 std::to_string(end));
+            out.emplace_back(logits, logits + n_vocab);
+        }
+        return out;
+    }
+
+    void clear_seq(std::int32_t seq_id) override {
+        llama_memory_seq_rm(llama_get_memory(ctx_), seq_id, -1, -1);
     }
 
     void truncate_to(std::uint32_t n_tokens) override {

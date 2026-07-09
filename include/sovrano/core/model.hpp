@@ -27,6 +27,9 @@ struct ModelParams {
     // cache halves/quarters its RAM at negligible quality cost — decisive
     // on low-RAM hosts.
     std::string kv_cache_type = "f16";
+    // Max concurrent sequences the context supports (decode_seqs);
+    // context_length is the TOTAL KV budget shared across them.
+    std::int32_t n_seq_max = 1;
 
     // Reads: model.path (required), model.context_length, model.threads
     // (default: hardware concurrency), memory.use_mmap, memory.use_mlock,

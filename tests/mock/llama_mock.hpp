@@ -47,6 +47,11 @@ public:
     std::vector<std::vector<TokenId>> decode_calls;
     std::vector<std::vector<TokenId>> decode_append_calls;
     std::vector<std::vector<TokenId>> decode_batch_calls;
+    std::vector<std::vector<SeqSlice>> decode_seqs_calls;
+    std::vector<std::int32_t> clear_seq_calls;
+    // Per-sequence scripted logits for decode_seqs (falls back to
+    // decode_result when a seq's queue is empty).
+    std::map<std::int32_t, std::deque<std::vector<float>>> seq_decode_queues;
     std::vector<std::uint32_t> truncate_calls;
     int reset_calls = 0;
     // State snapshot support (cache tests).
@@ -99,6 +104,27 @@ public:
         for (std::size_t i = 0; i < tokens.size(); ++i)
             out.push_back(next_logits());
         return out;
+    }
+
+    std::vector<std::vector<float>> decode_seqs(
+        const std::vector<SeqSlice>& slices) override {
+        maybe_fail();
+        decode_seqs_calls.push_back(slices);
+        std::vector<std::vector<float>> out;
+        for (const auto& s : slices) {
+            auto& q = seq_decode_queues[s.seq_id];
+            if (!q.empty()) {
+                out.push_back(std::move(q.front()));
+                q.pop_front();
+            } else {
+                out.push_back(decode_result);
+            }
+        }
+        return out;
+    }
+
+    void clear_seq(std::int32_t seq_id) override {
+        clear_seq_calls.push_back(seq_id);
     }
 
     void truncate_to(std::uint32_t n_tokens) override {

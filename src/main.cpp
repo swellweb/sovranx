@@ -9,10 +9,15 @@
 #include <string>
 
 #include "sovrano/cache/cache_manager.hpp"
+#include "sovrano/core/autoconfig.hpp"
 #include "sovrano/core/engine.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 #include "sovrano/utils/config.hpp"
 #include "sovrano/utils/logger.hpp"
+
+#include <cstdio>
+#include <filesystem>
+#include <thread>
 
 #ifdef SOVRANO_WITH_SERVER
 #include <condition_variable>
@@ -26,9 +31,15 @@ namespace {
 constexpr const char* kVersion = "0.1.0";
 
 void print_usage(const char* argv0) {
-    std::cerr << "Usage: " << argv0
-              << " [--config <path>] [--prompt <text>] [--max-tokens <n>]"
-                 " [--serve] [--help] [--version]\n";
+    std::cerr
+        << "Usage:\n"
+        << "  " << argv0 << " run <model> [\"prompt\"] [--serve]\n"
+        << "      zero-config: download if needed, auto-tune, then chat/serve\n"
+        << "  " << argv0 << " list\n"
+        << "      show the built-in model catalog\n"
+        << "  " << argv0
+        << " --config <path> [--prompt <text>] [--max-tokens <n>] [--serve]\n"
+        << "      advanced: run from a config file\n";
 }
 
 #ifdef SOVRANO_WITH_SERVER
@@ -45,13 +56,148 @@ void request_shutdown(int) {
 }
 #endif
 
+std::string home_dir() {
+    if (const char* h = std::getenv("HOME")) return h;
+    return "";
+}
+
+// Downloads `url` to `dest` with curl if the file is not already there.
+// Returns true on success.
+bool ensure_downloaded(const std::string& url, const std::string& dest,
+                       sovrano::Logger& log) {
+    if (std::filesystem::exists(dest)) return true;
+    std::filesystem::create_directories(
+        std::filesystem::path(dest).parent_path());
+    log.info("downloading model (first run only)...");
+    const std::string tmp = dest + ".part";
+    const std::string cmd =
+        "curl -L -C - --fail --progress-bar -o '" + tmp + "' '" + url + "'";
+    if (std::system(cmd.c_str()) != 0) {
+        std::filesystem::remove(tmp);
+        log.error("download failed");
+        return false;
+    }
+    std::filesystem::rename(tmp, dest);
+    return true;
+}
+
+// `sovrano run <model> ["prompt"] [--serve]`.
+int run_zeroconfig(int argc, char** argv) {
+    sovrano::Logger log(std::cout, sovrano::LogLevel::Info);
+    if (argc < 3) {
+        std::cerr << "usage: " << argv[0] << " run <model> [\"prompt\"]\n";
+        return EXIT_FAILURE;
+    }
+    const std::string token = argv[2];
+    std::string prompt;
+    bool serve = false;
+    for (int i = 3; i < argc; ++i) {
+        const std::string a = argv[i];
+        if (a == "--serve") serve = true;
+        else if (prompt.empty()) prompt = a;
+    }
+
+    // Resolve: a catalog alias downloads to ~/.sovrano/models; anything
+    // else is treated as a local GGUF path.
+    std::string model_path;
+    const auto spec = sovrano::core::resolve_model(token);
+    if (spec.has_value()) {
+        const std::string dir = home_dir() + "/.sovrano/models";
+        model_path = dir + "/" + spec->filename;
+        if (!ensure_downloaded(spec->url, model_path, log))
+            return EXIT_FAILURE;
+    } else if (std::filesystem::exists(token)) {
+        model_path = token;
+    } else {
+        std::cerr << "unknown model '" << token
+                  << "' and no such file. Try: " << argv[0] << " list\n";
+        return EXIT_FAILURE;
+    }
+
+    const unsigned hw = std::thread::hardware_concurrency();
+    auto cfg = sovrano::core::auto_config(
+        model_path, home_dir(), hw, spec.has_value() ? spec->default_ctx : 0);
+
+    try {
+        log.info("loading model (" + std::to_string(cfg.n_threads) +
+                 " threads)...");
+        auto engine =
+            std::make_shared<sovrano::core::SovranoEngine>(cfg);
+        log.info("ready.");
+
+        if (serve) {
+#ifdef SOVRANO_WITH_SERVER
+            sovrano::server::HttpServer::Config sc;
+            sc.port = 8080;
+            sovrano::server::HttpServer server(sc, engine);
+            server.start();
+            log.info("serving on http://127.0.0.1:8080 (Ctrl-C to stop)");
+            std::signal(SIGINT, request_shutdown);
+            std::signal(SIGTERM, request_shutdown);
+            std::unique_lock<std::mutex> lock(g_shutdown_mutex);
+            g_shutdown_cv.wait(lock, [] { return g_shutdown; });
+            server.stop();
+            return EXIT_SUCCESS;
+#else
+            std::cerr << "this build has no server support\n";
+            return EXIT_FAILURE;
+#endif
+        }
+
+        sovrano::core::GenerationConfig gen;
+        gen.max_tokens = 512;
+        const auto stream = [](const std::string& piece) {
+            std::cout << piece << std::flush;
+            return true;
+        };
+
+        if (!prompt.empty()) {
+            engine->generate_stream(prompt, stream, gen);
+            std::cout << "\n";
+            return EXIT_SUCCESS;
+        }
+
+        // Interactive chat: read lines, answer each.
+        std::cout << "Chatting with " << token
+                  << ". Type a message, Ctrl-D to quit.\n";
+        std::string line;
+        while (true) {
+            std::cout << "\n> " << std::flush;
+            if (!std::getline(std::cin, line)) break;
+            if (line.empty()) continue;
+            engine->generate_stream(line, stream, gen);
+            std::cout << "\n";
+        }
+        return EXIT_SUCCESS;
+    } catch (const std::exception& e) {
+        log.error(std::string("fatal: ") + e.what());
+        return EXIT_FAILURE;
+    }
+}
+
+int list_models() {
+    std::cout << "Built-in models (sovrano run <name>):\n\n";
+    for (const auto& m : sovrano::core::model_catalog())
+        std::cout << "  " << m.name << "\n      " << m.note << "\n";
+    std::cout << "\nOr: sovrano run /path/to/your-model.gguf\n";
+    return EXIT_SUCCESS;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    // Zero-config subcommands come first: `sovrano run <model>` / `list`.
+    if (argc >= 2) {
+        const std::string sub = argv[1];
+        if (sub == "run") return run_zeroconfig(argc, argv);
+        if (sub == "list") return list_models();
+    }
+
     std::string config_path = "config/sovrano.conf";
     std::string prompt;
     int max_tokens = 128;
     float temperature = 0.7f;
+    int best_of = 1;
     bool serve = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -69,7 +215,8 @@ int main(int argc, char** argv) {
             return EXIT_SUCCESS;
         }
         if (arg == "--config" || arg == "-c" || arg == "--prompt" ||
-            arg == "-p" || arg == "--max-tokens" || arg == "--temp") {
+            arg == "-p" || arg == "--max-tokens" || arg == "--temp" ||
+            arg == "--best-of") {
             if (i + 1 >= argc) {
                 std::cerr << "error: " << arg << " requires an argument\n";
                 return EXIT_FAILURE;
@@ -78,6 +225,7 @@ int main(int argc, char** argv) {
             if (arg == "--config" || arg == "-c") config_path = value;
             else if (arg == "--max-tokens") max_tokens = std::stoi(value);
             else if (arg == "--temp") temperature = std::stof(value);
+            else if (arg == "--best-of") best_of = std::stoi(value);
             else prompt = value;
             continue;
         }
@@ -137,6 +285,17 @@ int main(int argc, char** argv) {
             static_cast<int>(cfg.get_int("cache.block_tokens", 256));
         engine_cfg.n_parallel =
             static_cast<int>(cfg.get_int("server.parallel", 1));
+        if (best_of > 1) {
+            // Conclave from the CLI: attempts run interleaved; parallel
+            // mode excludes the disk cache and speculation. n_ctx is the
+            // TOTAL KV budget across sequences — scale it so every
+            // candidate keeps the configured per-request context.
+            engine_cfg.n_parallel = best_of;
+            engine_cfg.n_ctx *= best_of;
+            engine_cfg.use_speculative = false;
+            engine_cfg.use_prompt_lookup = false;
+            engine_cfg.cache_dir.clear();
+        }
 
         log.info("loading model...");
         auto engine =
@@ -190,11 +349,15 @@ int main(int argc, char** argv) {
         sovrano::core::GenerationConfig gen;
         gen.max_tokens = max_tokens;
         gen.temperature = temperature;
-        engine->generate_stream(prompt, [](const std::string& piece) {
-            std::cout << piece << std::flush;
-            return true;
-        }, gen);
-        std::cout << "\n";
+        if (best_of > 1) {
+            std::cout << engine->generate_best(prompt, gen, best_of) << "\n";
+        } else {
+            engine->generate_stream(prompt, [](const std::string& piece) {
+                std::cout << piece << std::flush;
+                return true;
+            }, gen);
+            std::cout << "\n";
+        }
 
         if (const auto* c = engine->cache_stats()) {
             log.info("cache: " + std::to_string(c->hits) + " hits, " +

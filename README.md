@@ -1,135 +1,143 @@
 # Sovrano
 
-Motore di inferenza CPU-only per LLM in formato GGUF (target: modelli 30B),
-progettato per VPS Contabo (18 vCPU, 96 GB RAM, 350 GB NVMe).
+**A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
 
-Combina due tecniche:
+Sovrano is not the first inference server. It's the first one that treats cheap CPU
+hardware as a first-class citizen instead of a fallback. Its thesis is simple:
 
-1. **Speculative decoding** (ispirato a DSpark/DeepSeek): un modello draft
-   piccolo propone token, il modello target 30B li verifica in un singolo
-   passaggio batched.
-2. **Ottimizzazioni memoria** (ispirato a DwarfStar4/antirez): mmap del
-   modello, KV-cache persistente su NVMe (zstd + checksum + LRU) con riuso
-   dei prefissi di prompt tra riavvii, cap sulla RAM.
+> **On a CPU, never compute the same thing twice.**
 
-## Stack
+- 🗂️ **Persistent shared-prefix KV cache** — prompt prefixes are snapshotted to disk
+  (zstd, checksummed, LRU-budgeted) and reused **across different prompts, restarts
+  and processes**. A system prompt is paid for once, by the first user.
+- 🔮 **Self-regulating speculative decoding** — a small draft model *or* zero-cost
+  n-gram lookup proposes tokens; the target verifies them in one batched pass.
+  Sovrano *measures* whether speculation pays on your hardware and switches it
+  off by itself when it doesn't.
+- 👥 **Interleaved multi-user serving** — N concurrent generations advance together
+  inside single multi-sequence batches, sharing every read of the model weights
+  (the cost that dominates memory-bound CPU decoding).
+- 🌐 **OpenAI-compatible REST API** — `/v1/completions`, `/v1/chat/completions`,
+  SSE streaming, sessions, bearer auth, metrics. Point any OpenAI client at it.
+- 🧪 **160+ isolated tests** — every layer is mockable and tested without a model;
+  correctness of the multi-sequence and speculative paths is pinned against real
+  models in integration tests.
 
-- C++17, base [llama.cpp](https://github.com/ggerganov/llama.cpp) (integrazione nei prossimi step)
-- Boost.Asio (server HTTP), nlohmann/json (API), Zstandard (compressione)
-- CMake ≥ 3.16, flag AVX2/AVX-512 opzionali (solo x86_64)
-- Test: Catch2 v3 (via FetchContent) + CTest
+![Architecture](docs/figures/architecture.svg)
 
-## Dipendenze
+## Measured, not promised
 
-Il core (utils + test) compila senza dipendenze esterne. Il server richiede:
+Every number below was produced by the shipped binary on the hardware named —
+including the negative results that shaped the design.
+
+| Hardware | Model | Configuration | Result |
+|---|---|---|---|
+| Oracle Cloud **free tier** (2× ARM, 12 GB, €0/mo) | Qwen2.5-7B Q4_K_M | plain, KV q8_0 | **3.3 tok/s** |
+| Oracle Cloud free tier | TriLM 3.9B ternary TQ2_0 | 1.1 GB total RAM | **~10 tok/s** |
+| Apple M3 Pro (6 threads) | Qwen2.5-1.5B Q4_K_M | plain | **52 tok/s** |
+| Shared Contabo VPS (18 oversubscribed vCPUs) | 1.5B + 0.5B draft | speculative, 87% acceptance | **3.2× speedup** |
+| Shared Contabo VPS | TinyLlama 1.1B | warm disk cache vs cold | **4.8× end-to-end** |
+| Apple M3 Pro | Qwen2.5-1.5B | prompt-lookup on a rewrite task | **1.44×** |
+| Apple M3 Pro | TinyLlama, 3 concurrent users | interleaved vs serialized | **1.6×** |
+
+The negative result that matters: on heavily oversubscribed shared vCPUs a draft
+model runs as slowly as its target, so speculation is counter-productive there —
+Sovrano detects this and disables it at runtime. Benchmarks that only show wins
+are advertising; these are engineering.
+
+## How it works
+
+**Shared-prefix disk cache.** Prompts are split into fixed token blocks; a chain
+hash keys a KV snapshot at every block boundary. A *different* prompt that shares
+a prefix restores the longest cached boundary and decodes only its own tail.
+Unlike GPU-resident prefix caches, snapshots live on NVMe: they survive restarts.
+
+![Shared-prefix cache](docs/figures/prefix-cache.svg)
+
+**Self-regulating speculation.** Classic Leviathan/Chen acceptance (the rejected
+token is resampled from the residual distribution, so the output distribution is
+exactly the target's), with two CPU-first twists: the draft source can be free
+n-gram lookup mined from the prompt itself — ideal for extraction and rewrite
+workloads — and a feedback controller adapts the draft length and turns
+speculation off when measured acceptance or draft economics go negative.
+
+![Speculative decoding](docs/figures/speculative.svg)
+
+## Quick start
 
 ```bash
-# Debian/Ubuntu (VPS)
-sudo apt install build-essential cmake libboost-system-dev nlohmann-json3-dev libzstd-dev pkg-config
+git clone https://github.com/swellweb/sovrano
+cd sovrano
+git submodule update --init --depth 1 third_party/llama.cpp
+./build.sh                       # Release build + 160+ tests
 
-# macOS (sviluppo)
+./scripts/download_models.sh     # TinyLlama (test model, ~670 MB)
+
+./build/src/sovrano --config config/sovrano.conf --prompt "Hello" --max-tokens 32
+./build/src/sovrano --config config/sovrano.conf --serve   # OpenAI-compatible API
+```
+
+Dependencies: CMake ≥ 3.16, a C++17 compiler, and for the server Boost (headers),
+nlohmann-json and zstd:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential cmake libboost-dev nlohmann-json3-dev libzstd-dev pkg-config
+# macOS
 brew install cmake boost nlohmann-json zstd pkg-config
 ```
 
-Se le dipendenze server mancano, il build le segnala e disabilita il target
-server (equivalente a `--no-server`).
+## Configuration highlights
 
-## Setup iniziale
+```ini
+[model]
+path = models/qwen2.5-7b-instruct-q4_k_m.gguf
+context_length = 4096      # total KV budget (shared across users when parallel > 1)
+threads = 4                # fewer is often faster on shared vCPUs — measure!
 
-```bash
-git clone <repo-url> && cd Sovrano
-git submodule update --init --depth 1 third_party/llama.cpp
+[memory]
+kv_cache_type = q8_0       # f16 | q8_0 | q4_0 — halve/quarter context RAM
+
+[speculative]
+enabled = true
+mode = lookup              # model (needs draft_model_path) | lookup (no 2nd model)
+
+[cache]
+directory = /opt/sovrano/cache
+max_size_mb = 4096         # LRU byte budget on disk
+
+[server]
+port = 8080
+api_key =                  # bearer auth when set
+parallel = 1               # >1 = interleaved multi-user serving
 ```
 
-Senza il submodule il progetto compila comunque (warning a configure-time),
-ma il caricamento modelli fallisce a runtime con messaggio esplicativo.
+## API
 
-Modelli di test (GGUF, in `models/`, gitignorata):
-
-```bash
-./scripts/download_models.sh              # TinyLlama 1.1B (~670 MB, per i test)
-./scripts/download_models.sh --spec-pair  # Qwen2.5 1.5B+0.5B (test speculative)
-./scripts/download_models.sh --7b         # + Qwen2.5 7B (~4.7 GB)
-```
-
-## Compilazione
-
-```bash
-./build.sh                 # Release + test
-./build.sh --debug         # build Debug
-./build.sh --clean         # ricompila da zero
-./build.sh --no-tests      # senza test
-./build.sh --avx512        # abilita AVX-512 (CPU che lo supporta)
-./build.sh --no-server     # solo core, senza dipendenze server
-```
-
-Oppure manualmente:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
-
-## Esecuzione
-
-```bash
-# Generazione one-shot da CLI
-./build/src/sovrano --config config/sovrano.conf --prompt "Ciao" --max-tokens 64
-
-# Server HTTP (API REST compatibile OpenAI)
-./build/src/sovrano --config config/sovrano.conf --serve
-```
-
-### API
-
-| Endpoint | Descrizione |
+| Endpoint | Description |
 |---|---|
-| `GET /health` | liveness (senza auth) |
-| `GET /v1/models` | modello configurato |
-| `POST /v1/completions` | completion (SSE con `"stream": true`) |
-| `POST /v1/chat/completions` | chat completion (SSE con `"stream": true`) |
-| `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | sessioni KV |
-| `GET /metrics` | contatori server + metriche speculative |
+| `POST /v1/completions` | text completion (SSE with `"stream": true`) |
+| `POST /v1/chat/completions` | chat completion |
+| `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | KV session snapshots |
+| `GET /metrics` | request counters + speculative/cache metrics |
+| `GET /health` | liveness (auth-exempt) |
 
-Con `server.api_key` impostata serve `Authorization: Bearer <key>` (tranne `/health`).
+## A note on energy
 
-```bash
-curl http://localhost:8080/v1/completions \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "La capitale d'\''Italia è", "max_tokens": 16}'
-```
+Sovrano's footprint is watt-scale, not kilowatt-scale: it targets machines that
+already exist and are already powered on — no new silicon is racked to serve your
+model. We don't claim better joules-per-token than a saturated datacenter GPU —
+we claim you don't need one.
 
-Configurazione: vedi [config/sovrano.conf](config/sovrano.conf) (formato INI,
-chiavi lette come `sezione.chiave`).
+## Status & scope
 
-## Struttura
+Sovrano is young and deliberately **opinionated and focused**: CPU-only serving,
+one model per process, correctness pinned by tests at every layer. Not goals:
+GPU offload, training, model management UX. The llama.cpp submodule is pinned to
+a known-good commit and bumped deliberately.
 
-```
-Sovrano/
-├── CMakeLists.txt          # build principale
-├── build.sh                # script di build
-├── cmake/                  # moduli CMake (flag compilatore, SIMD)
-├── config/sovrano.conf     # configurazione di esempio
-├── include/sovrano/        # header pubblici
-│   └── utils/              # Config, Logger
-├── src/
-│   ├── main.cpp            # entry point
-│   ├── core/               # LlamaModel, engine, sampler, backend llama.cpp
-│   ├── speculative/        # draft generator, batch verifier, decoder
-│   ├── cache/              # KV-cache su NVMe: serializer, store LRU, manager
-│   ├── memory/             # ottimizzazioni memoria (prossimi step)
-│   ├── server/             # parser HTTP, API handler, server Asio
-│   └── utils/              # config parser, logger
-├── tests/
-│   ├── unit/               # test isolati (Catch2)
-│   └── mock/               # MockBackend (llama.cpp mockato)
-├── scripts/                # download_models.sh
-└── third_party/llama.cpp   # submodule (pinnato)
-```
+Documentation in Italian: [docs/README.it.md](docs/README.it.md).
 
-## Sviluppo (TDD)
+## License
 
-Ogni unità ha il suo test isolato in `tests/unit/` (dipendenze mockate,
-nessun filesystem/rete nei test). Ciclo: test RED → implementazione GREEN →
-lint → commit.
+[MIT](LICENSE). Built on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT).

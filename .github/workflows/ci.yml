@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            deps: sudo apt-get update && sudo apt-get install -y
+              build-essential cmake libboost-dev nlohmann-json3-dev
+              libzstd-dev pkg-config
+          - os: macos-14
+            deps: brew install boost nlohmann-json zstd pkg-config
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install dependencies
+        run: ${{ matrix.deps }}
+
+      - name: Init llama.cpp submodule (shallow)
+        run: git submodule update --init --depth 1 third_party/llama.cpp
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      # Model-based integration tests SKIP automatically when no GGUF is
+      # present; the 150+ mock-based tests are what CI guards.
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

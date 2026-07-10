@@ -92,7 +92,16 @@ struct ApiHandler::Impl {
 
     bool authorized(const HttpRequest& r) const {
         if (cfg.api_key.empty()) return true;
-        return r.header("Authorization") == "Bearer " + cfg.api_key;
+        const std::string expected = "Bearer " + cfg.api_key;
+        const std::string got = r.header("Authorization");
+        // Constant-time comparison: a byte-wise early exit would leak how
+        // many leading characters of the key are correct.
+        unsigned char diff =
+            static_cast<unsigned char>(got.size() != expected.size());
+        for (std::size_t i = 0; i < got.size(); ++i)
+            diff |= static_cast<unsigned char>(
+                got[i] ^ expected[i < expected.size() ? i : 0]);
+        return diff == 0;
     }
 
     static core::GenerationConfig gen_config_from(const json& j) {
@@ -250,7 +259,15 @@ struct ApiHandler::Impl {
                 return;
             }
 
-            // /v1/sessions/{id}[/save|/load]
+            // /v1/sessions/{id}[/save|/load] — anything without an id
+            // (bare "/v1/sessions" with the wrong method) is not a valid
+            // session operation.
+            if (r.target.size() <= 13) {
+                respond(w, 405,
+                        error_json("method not allowed",
+                                   "invalid_request_error", "bad_method"));
+                return;
+            }
             const std::string rest = r.target.substr(13);  // after prefix
             const auto slash = rest.find('/');
             const std::string id =
@@ -363,7 +380,8 @@ struct ApiHandler::Impl {
             return;
         }
 
-        if (r.target.rfind("/v1/sessions", 0) == 0) {
+        if (r.target == "/v1/sessions" ||
+            r.target.rfind("/v1/sessions/", 0) == 0) {
             handle_sessions(r, w);
             return;
         }

@@ -1,0 +1,54 @@
+<svg viewBox="0 0 840 250" width="840" height="250" xmlns="http://www.w3.org/2000/svg" style="background:#FBFAF6" role="img" aria-label="Speculative decoding pipeline">
+    <defs>
+      <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#3E5C8F"/>
+      </marker>
+    </defs>
+
+    <!-- Step 1: draft -->
+    <rect x="20" y="40" width="220" height="120" rx="4" fill="#E5EBF5" stroke="#3E5C8F" stroke-width="1.4"/>
+    <text x="130" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#3E5C8F">1 · Draft N candidates</text>
+    <text x="130" y="86" text-anchor="middle" font-size="10.5" fill="#20242E">small model (e.g. 0.5B)</text>
+    <text x="130" y="102" text-anchor="middle" font-size="10.5" font-weight="650" fill="#20242E">— or —</text>
+    <text x="130" y="118" text-anchor="middle" font-size="10.5" fill="#20242E">n-gram lookup in the prompt</text>
+    <text x="130" y="134" text-anchor="middle" font-size="10" fill="#5A6072">(zero model, zero RAM)</text>
+
+    <!-- draft tokens -->
+    <g font-family="ui-monospace, Menlo, monospace" font-size="11">
+      <rect x="280" y="80" width="42" height="30" fill="#FBFAF6" stroke="#3E5C8F"/>
+      <rect x="326" y="80" width="42" height="30" fill="#FBFAF6" stroke="#3E5C8F"/>
+      <rect x="372" y="80" width="42" height="30" fill="#FBFAF6" stroke="#3E5C8F"/>
+      <text x="301" y="99" text-anchor="middle" fill="#20242E">d₁</text>
+      <text x="347" y="99" text-anchor="middle" fill="#20242E">d₂</text>
+      <text x="393" y="99" text-anchor="middle" fill="#20242E">d₃</text>
+    </g>
+    <line x1="240" y1="95" x2="275" y2="95" stroke="#3E5C8F" stroke-width="1.3" marker-end="url(#arr3)"/>
+    <line x1="414" y1="95" x2="450" y2="95" stroke="#3E5C8F" stroke-width="1.3" marker-end="url(#arr3)"/>
+
+    <!-- Step 2: verify -->
+    <rect x="455" y="40" width="180" height="120" rx="4" fill="#FBFAF6" stroke="#3E5C8F" stroke-width="1.6"/>
+    <text x="545" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#3E5C8F">2 · Verify in ONE pass</text>
+    <text x="545" y="86" text-anchor="middle" font-size="10.5" fill="#20242E">target model decodes</text>
+    <text x="545" y="101" text-anchor="middle" font-size="10.5" fill="#20242E">the whole batch at once</text>
+    <text x="545" y="122" text-anchor="middle" font-size="10.5" fill="#5A6072">weights read once</text>
+    <text x="545" y="137" text-anchor="middle" font-size="10.5" fill="#5A6072">for N candidates</text>
+
+    <!-- Step 3: accept -->
+    <line x1="635" y1="95" x2="670" y2="95" stroke="#3E5C8F" stroke-width="1.3" marker-end="url(#arr3)"/>
+    <g font-family="ui-monospace, Menlo, monospace" font-size="11">
+      <rect x="675" y="80" width="42" height="30" fill="#E3F1ED" stroke="#0E7C66" stroke-width="1.4"/>
+      <rect x="721" y="80" width="42" height="30" fill="#E3F1ED" stroke="#0E7C66" stroke-width="1.4"/>
+      <rect x="767" y="80" width="42" height="30" fill="#EEEEE9" stroke="#C9CBC4" stroke-dasharray="3 2"/>
+      <text x="696" y="99" text-anchor="middle" fill="#0E7C66">✓d₁</text>
+      <text x="742" y="99" text-anchor="middle" fill="#0E7C66">✓d₂</text>
+      <text x="788" y="99" text-anchor="middle" fill="#5A6072">✗→c</text>
+    </g>
+    <text x="742" y="130" text-anchor="middle" font-size="10" fill="#5A6072">accepted prefix · first miss replaced</text>
+    <text x="742" y="144" text-anchor="middle" font-size="10" fill="#5A6072">by a token from the residual dist.</text>
+
+    <!-- feedback -->
+    <path d="M 545 165 L 545 195 L 130 195 L 130 168" fill="none" stroke="#5A6072" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#arr3)"/>
+    <text x="340" y="188" text-anchor="middle" font-size="10" fill="#5A6072">acceptance rate feeds back: draft length adapts (2–32); persistently unprofitable → speculation switches itself off</text>
+
+    <text x="420" y="232" text-anchor="middle" font-size="10.5" font-weight="650" fill="#3E5C8F">Measured: 3.2× on dedicated cores at 87% acceptance · 1.44× draft-free on rewrite tasks · auto-off saved 8× on shared vCPUs</text>
+  </svg>

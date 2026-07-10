@@ -298,6 +298,17 @@ TEST_CASE("generation endpoints return 503 when the server is saturated") {
 // Sessions
 // ---------------------------------------------------------------------------
 
+TEST_CASE("malformed session paths get a clean 4xx, never a crash") {
+    Fixture f;
+
+    // No id at all (previously threw std::out_of_range -> 500).
+    CHECK(f.handler->handle(request("DELETE", "/v1/sessions")).status == 405);
+    CHECK(f.handler->handle(request("GET", "/v1/sessions")).status == 405);
+    // Prefix-like but bogus.
+    CHECK(f.handler->handle(request("POST", "/v1/sessionsXYZ")).status == 404);
+    CHECK(f.handler->handle(request("POST", "/v1/sessions/")).status == 405);
+}
+
 TEST_CASE("session lifecycle over HTTP") {
     Fixture f;
 

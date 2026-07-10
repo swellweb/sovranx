@@ -1,0 +1,67 @@
+<svg viewBox="0 0 840 460" width="840" height="460" xmlns="http://www.w3.org/2000/svg" style="background:#FBFAF6" role="img" aria-label="Sovrano architecture diagram">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#5A6072"/>
+      </marker>
+    </defs>
+
+    <!-- Clients -->
+    <rect x="20" y="40" width="130" height="72" rx="4" fill="#EEEEE9" stroke="#C9CBC4"/>
+    <text x="85" y="70" text-anchor="middle" font-size="13" font-weight="650" fill="#20242E">Clients</text>
+    <text x="85" y="90" text-anchor="middle" font-size="10.5" fill="#5A6072">OpenAI-compatible</text>
+
+    <!-- HTTP server -->
+    <rect x="205" y="20" width="170" height="112" rx="4" fill="#FBFAF6" stroke="#20242E" stroke-width="1.4"/>
+    <text x="290" y="44" text-anchor="middle" font-size="13" font-weight="650" fill="#20242E">HTTP Server</text>
+    <text x="290" y="63" text-anchor="middle" font-size="10.5" fill="#5A6072">/v1/completions · chat</text>
+    <text x="290" y="79" text-anchor="middle" font-size="10.5" fill="#5A6072">SSE streaming · sessions</text>
+    <text x="290" y="95" text-anchor="middle" font-size="10.5" fill="#5A6072">auth · CORS · /metrics</text>
+    <text x="290" y="111" text-anchor="middle" font-size="10.5" fill="#5A6072">backpressure (503)</text>
+
+    <!-- Engine -->
+    <rect x="430" y="20" width="180" height="112" rx="4" fill="#E3F1ED" stroke="#0E7C66" stroke-width="1.6"/>
+    <text x="520" y="46" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0E7C66">SovranoEngine</text>
+    <text x="520" y="66" text-anchor="middle" font-size="10.5" fill="#5A6072">generation orchestration</text>
+    <text x="520" y="82" text-anchor="middle" font-size="10.5" fill="#5A6072">sampler (top-p · penalty)</text>
+    <text x="520" y="98" text-anchor="middle" font-size="10.5" fill="#5A6072">token / usage accounting</text>
+    <text x="520" y="114" text-anchor="middle" font-size="10.5" fill="#5A6072">session snapshots</text>
+
+    <!-- Speculative box -->
+    <rect x="240" y="185" width="360" height="110" rx="4" fill="#E5EBF5" stroke="#3E5C8F" stroke-width="1.4"/>
+    <text x="420" y="207" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3E5C8F">Speculative Decoder — self-regulating</text>
+    <rect x="258" y="220" width="150" height="58" rx="3" fill="#FBFAF6" stroke="#3E5C8F"/>
+    <text x="333" y="242" text-anchor="middle" font-size="11" font-weight="650" fill="#20242E">Draft source</text>
+    <text x="333" y="258" text-anchor="middle" font-size="10" fill="#5A6072">small model · or n-gram</text>
+    <text x="333" y="271" text-anchor="middle" font-size="10" fill="#5A6072">prompt-lookup (zero cost)</text>
+    <rect x="432" y="220" width="150" height="58" rx="3" fill="#FBFAF6" stroke="#3E5C8F"/>
+    <text x="507" y="242" text-anchor="middle" font-size="11" font-weight="650" fill="#20242E">Batch verifier</text>
+    <text x="507" y="258" text-anchor="middle" font-size="10" fill="#5A6072">one forward pass</text>
+    <text x="507" y="271" text-anchor="middle" font-size="10" fill="#5A6072">accept · reject · correct</text>
+    <line x1="408" y1="249" x2="428" y2="249" stroke="#5A6072" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="420" y="310" text-anchor="middle" font-size="9.5" fill="#5A6072">adaptive draft length · auto-disable when the hardware doesn't pay it back</text>
+
+    <!-- Cache column -->
+    <rect x="640" y="185" width="180" height="150" rx="4" fill="#F7EBDA" stroke="#B26A1B" stroke-width="1.4"/>
+    <text x="730" y="208" text-anchor="middle" font-size="12.5" font-weight="700" fill="#B26A1B">Persistent KV Cache</text>
+    <text x="730" y="228" text-anchor="middle" font-size="10.5" fill="#5A6072">shared-prefix, block-hashed</text>
+    <text x="730" y="244" text-anchor="middle" font-size="10.5" fill="#5A6072">zstd + checksums + LRU</text>
+    <text x="730" y="260" text-anchor="middle" font-size="10.5" fill="#5A6072">survives restarts</text>
+    <rect x="668" y="278" width="124" height="40" rx="3" fill="#FBFAF6" stroke="#B26A1B"/>
+    <text x="730" y="295" text-anchor="middle" font-size="10.5" font-weight="650" fill="#20242E">NVMe / disk</text>
+    <text x="730" y="310" text-anchor="middle" font-size="9.5" fill="#5A6072">.kvc snapshots</text>
+
+    <!-- Backend -->
+    <rect x="240" y="360" width="360" height="76" rx="4" fill="#EEEEE9" stroke="#20242E" stroke-width="1.2"/>
+    <text x="420" y="384" text-anchor="middle" font-size="12.5" font-weight="650" fill="#20242E">LlamaBackend  →  llama.cpp (ggml, CPU)</text>
+    <text x="420" y="403" text-anchor="middle" font-size="10.5" fill="#5A6072">AVX2 / NEON kernels · Q4_K · ternary TQ2_0 · quantized KV (q8_0/q4_0)</text>
+    <text x="420" y="420" text-anchor="middle" font-size="10.5" fill="#5A6072">multi-sequence batches: N users, weights read once</text>
+
+    <!-- Arrows -->
+    <line x1="150" y1="76" x2="200" y2="76" stroke="#5A6072" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="375" y1="76" x2="425" y2="76" stroke="#5A6072" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="520" y1="132" x2="470" y2="180" stroke="#5A6072" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="565" y1="132" x2="700" y2="180" stroke="#5A6072" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="420" y1="295" x2="420" y2="355" stroke="#5A6072" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="660" y1="340" x2="580" y2="372" stroke="#B26A1B" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+    <text x="655" y="362" text-anchor="middle" font-size="9.5" fill="#B26A1B">restore / snapshot state</text>
+  </svg>

@@ -1,0 +1,55 @@
+<svg viewBox="0 0 840 300" width="840" height="300" xmlns="http://www.w3.org/2000/svg" style="background:#FBFAF6" role="img" aria-label="Shared prefix cache diagram">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B26A1B"/>
+      </marker>
+    </defs>
+
+    <text x="20" y="30" font-size="12" font-weight="650" fill="#20242E">Request A (cold)</text>
+    <!-- Request A blocks -->
+    <rect x="20"  y="45" width="150" height="44" fill="#F7EBDA" stroke="#B26A1B"/>
+    <rect x="170" y="45" width="150" height="44" fill="#F7EBDA" stroke="#B26A1B"/>
+    <rect x="320" y="45" width="120" height="44" fill="#EEEEE9" stroke="#C9CBC4"/>
+    <text x="95"  y="63" text-anchor="middle" font-size="10.5" fill="#20242E">system prompt</text>
+    <text x="95"  y="78" text-anchor="middle" font-size="10" fill="#5A6072">block 1 · hash h₁</text>
+    <text x="245" y="63" text-anchor="middle" font-size="10.5" fill="#20242E">shared context</text>
+    <text x="245" y="78" text-anchor="middle" font-size="10" fill="#5A6072">block 2 · hash h₂ = H(h₁‖b₂)</text>
+    <text x="380" y="63" text-anchor="middle" font-size="10.5" fill="#20242E">question A</text>
+    <text x="380" y="78" text-anchor="middle" font-size="10" fill="#5A6072">decoded</text>
+
+    <!-- snapshot arrows down -->
+    <line x1="170" y1="89" x2="170" y2="130" stroke="#B26A1B" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr2)"/>
+    <line x1="320" y1="89" x2="320" y2="130" stroke="#B26A1B" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr2)"/>
+    <text x="205" y="115" font-size="9.5" fill="#B26A1B">snapshot @h₁</text>
+    <text x="355" y="115" font-size="9.5" fill="#B26A1B">snapshot @h₂</text>
+
+    <!-- Disk -->
+    <rect x="120" y="135" width="330" height="46" rx="4" fill="#FBFAF6" stroke="#B26A1B" stroke-width="1.4"/>
+    <text x="285" y="154" text-anchor="middle" font-size="11.5" font-weight="650" fill="#B26A1B">disk store — chain-keyed KV snapshots</text>
+    <text x="285" y="171" text-anchor="middle" font-size="10" fill="#5A6072">zstd · FNV-1a checksums · LRU byte budget · deduplicated</text>
+
+    <text x="20" y="225" font-size="12" font-weight="650" fill="#20242E">Request B (different question, same prefix)</text>
+    <!-- Request B blocks -->
+    <rect x="20"  y="240" width="300" height="44" fill="#E3F1ED" stroke="#0E7C66" stroke-width="1.4"/>
+    <rect x="320" y="240" width="120" height="44" fill="#EEEEE9" stroke="#C9CBC4"/>
+    <text x="170" y="258" text-anchor="middle" font-size="10.5" font-weight="650" fill="#0E7C66">restored from disk — not recomputed</text>
+    <text x="170" y="274" text-anchor="middle" font-size="10" fill="#5A6072">longest cached boundary: h₂</text>
+    <text x="380" y="258" text-anchor="middle" font-size="10.5" fill="#20242E">question B</text>
+    <text x="380" y="274" text-anchor="middle" font-size="10" fill="#5A6072">only part decoded</text>
+
+    <!-- restore arrow up from disk to B -->
+    <line x1="285" y1="181" x2="285" y2="236" stroke="#0E7C66" stroke-width="1.4" marker-end="url(#arr2)"/>
+    <text x="298" y="212" font-size="9.5" fill="#0E7C66">restore @h₂</text>
+
+    <!-- right side: effect -->
+    <rect x="490" y="45" width="330" height="240" rx="4" fill="#EEEEE9" stroke="#C9CBC4"/>
+    <text x="655" y="75" text-anchor="middle" font-size="12" font-weight="700" fill="#20242E">Why this matters on CPU</text>
+    <text x="510" y="105" font-size="10.5" fill="#20242E">· Prefill is the dominant cost of every request</text>
+    <text x="510" y="128" font-size="10.5" fill="#20242E">· A shared system prompt is paid once, by the</text>
+    <text x="518" y="143" font-size="10.5" fill="#20242E">  first user — then reused by all of them</text>
+    <text x="510" y="166" font-size="10.5" fill="#20242E">· Works across restarts and across processes</text>
+    <text x="510" y="189" font-size="10.5" fill="#20242E">· Exact repeats skip prefill entirely</text>
+    <text x="510" y="222" font-size="10.5" font-weight="650" fill="#0E7C66">Measured: warm run 4.8× faster end-to-end</text>
+    <text x="510" y="240" font-size="10.5" fill="#5A6072">(TinyLlama, ~35-token prompt, shared VPS)</text>
+    <text x="510" y="263" font-size="10.5" font-weight="650" fill="#0E7C66">Cross-prompt hit verified: 1 restore, tail-only decode</text>
+  </svg>

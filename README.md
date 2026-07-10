@@ -72,7 +72,22 @@ speculation off when measured acceptance or draft economics go negative.
 
 ![Speculative decoding](docs/figures/speculative.svg)
 
-## Quick start
+## Install
+
+**Homebrew** (macOS / Linux):
+
+```bash
+brew tap swellweb/sovrano
+brew install sovrano
+```
+
+**Prebuilt binaries** — Linux x64/arm64 and macOS arm64 on the
+[releases page](https://github.com/swellweb/sovrano/releases)
+(runtime dependency: libzstd).
+
+**npm** (`npx sovrano`): planned — binaries are already built per platform.
+
+## Build from source
 
 ```bash
 git clone https://github.com/swellweb/sovrano

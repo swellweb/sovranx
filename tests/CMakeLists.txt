@@ -17,6 +17,7 @@ add_executable(sovrano_tests
     unit/test_scheduler.cpp
     unit/test_speculative.cpp
     unit/test_prompt_lookup.cpp
+    unit/test_form_draft.cpp
     unit/test_cache.cpp
     unit/test_prefix_cache.cpp
     unit/test_corpus_index.cpp

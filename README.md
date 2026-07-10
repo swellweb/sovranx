@@ -13,6 +13,10 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
 - 📜 **Palimpsest: the server remembers what it generated** — every completed
   generation feeds an on-disk n-gram archive; future requests draft from it
   at zero cost. Domain workloads repeat themselves — let them pay off.
+- 🎭 **Il Suggeritore: grammar as a draft source** — constrained decoding uses
+  structure to *forbid* tokens; Sovrano inverts it and uses structure to
+  *propose* them. List numbering, bullets and format tokens are speculated
+  for free on content nobody has ever generated before.
 - 🔮 **Self-regulating speculative decoding** — a small draft model *or* zero-cost
   n-gram lookup proposes tokens; the target verifies them in one batched pass.
   Sovrano *measures* whether speculation pays on your hardware and switches it
@@ -43,6 +47,7 @@ including the negative results that shaped the design.
 | Apple M3 Pro | Qwen2.5-1.5B | prompt-lookup on a rewrite task | **1.44×** |
 | Apple M3 Pro | TinyLlama, 3 concurrent users | interleaved vs serialized | **1.6×** |
 | Apple M3 Pro | Qwen2.5-1.5B, repeated request | archive speculation (palimpsest) | **2.3×** (22→51 tok/s) |
+| Apple M3 Pro | Qwen2.5-1.5B, fresh list generation | form drafting (suggeritore) | **2.1×** (4.4s→2.1s) |
 
 The negative result that matters: on heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —

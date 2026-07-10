@@ -9,6 +9,7 @@
 #include "sovrano/palimpsest/corpus_index.hpp"
 #include "sovrano/speculative/batch_verifier.hpp"
 #include "sovrano/speculative/draft_generator.hpp"
+#include "sovrano/speculative/form_draft.hpp"
 #include "sovrano/speculative/prompt_lookup.hpp"
 
 namespace sovrano::speculative {
@@ -176,6 +177,23 @@ void SpeculativeDecoder::generate_stream(
                 draft.tokens = lookup.find_draft(history, n_draft);
                 if (draft.tokens.empty() && cfg_.corpus != nullptr)
                     draft.tokens = cfg_.corpus->draft(history, n_draft);
+                if (draft.tokens.empty()) {
+                    // The prompter: structural continuations (list
+                    // numbering, bullets) predictable on content nobody
+                    // has ever generated before.
+                    const std::size_t tail_tokens =
+                        std::min<std::size_t>(history.size(), 48);
+                    const auto tail_text = target_.detokenize(
+                        {history.end() - static_cast<long>(tail_tokens),
+                         history.end()});
+                    const auto proposal = FormDraft::propose(tail_text);
+                    if (!proposal.empty())
+                        draft.tokens = target_.tokenize(
+                            proposal, /*add_special=*/false);
+                    if (static_cast<int>(draft.tokens.size()) > n_draft)
+                        draft.tokens.resize(
+                            static_cast<std::size_t>(n_draft));
+                }
                 const auto n_vocab =
                     static_cast<std::size_t>(target_.vocab_size());
                 for (const TokenId t : draft.tokens) {

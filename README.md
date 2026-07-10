@@ -147,6 +147,39 @@ a known-good commit and bumped deliberately.
 
 Documentation in Italian: [docs/README.it.md](docs/README.it.md).
 
+## Why Sovrano and not Ollama?
+
+Honestly: if you want to chat with models on your laptop, pull and switch them
+with one command — **use Ollama**. It's excellent at that, and Sovrano doesn't
+compete with it.
+
+Sovrano exists for a different job: **serving a real workload from hardware
+that costs nothing**. The difference is one sentence:
+
+> Ollama runs models. Sovrano remembers having run them.
+
+General-purpose servers treat every request as brand new: compute, discard,
+repeat. On a GPU that's fine — compute is cheap. On a cheap CPU, compute is
+the most expensive thing you have, and throwing it away is the cardinal sin.
+Everything in Sovrano attacks that: the disk prefix cache, the generation
+archive, the grammar prompter, self-regulating speculation, interleaved
+multi-user batches. None of it exists in Ollama.
+
+The practical consequence: **a Sovrano server gets faster the longer it runs.**
+The hundredth request costs a fraction of the first — the system prompt was
+paid once, similar answers draft themselves from the archive, structure is
+speculated for free. No other server has that property.
+
+## Acknowledgments
+
+Sovrano stands on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp)
+(all tensor kernels; MIT). The disk-first cache thesis was inspired by
+antirez's DwarfStar4 line of thinking; the speculative pipeline by DeepSeek's
+DSpark work and the Leviathan/Chen speculative sampling theorem; archive
+drafting is a shipped, persistent take on retrieval-based speculation (REST);
+form drafting inverts grammar-constrained decoding. Ideas are cited, numbers
+are ours.
+
 ## License
 
 [MIT](LICENSE). Built on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT).

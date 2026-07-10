@@ -91,9 +91,13 @@ public:
         const auto text_len = static_cast<int32_t>(text.size());
 
         // Two-pass: first call reports the required size as a negative count.
+        // parse_special=true: chat templates carry control tokens as text
+        // ("<|im_start|>", "</s>") and they must map to their single control
+        // id — spelled out as plain text the model mimics the tags and never
+        // emits a real EOS.
         int32_t n = llama_tokenize(vocab_, text.c_str(), text_len,
                                    nullptr, 0, add_special,
-                                   /*parse_special=*/false);
+                                   /*parse_special=*/true);
         if (n == 0) return {};
         if (n == INT32_MIN)
             throw ModelError("tokenization overflow for input of " +
@@ -103,7 +107,7 @@ public:
         std::vector<TokenId> tokens(static_cast<std::size_t>(n));
         const int32_t written =
             llama_tokenize(vocab_, text.c_str(), text_len, tokens.data(), n,
-                           add_special, /*parse_special=*/false);
+                           add_special, /*parse_special=*/true);
         if (written < 0)
             throw ModelError("tokenization failed");
         tokens.resize(static_cast<std::size_t>(written));

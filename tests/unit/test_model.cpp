@@ -324,3 +324,30 @@ TEST_CASE("[integration] real model: tokenize round-trip and forward pass",
     CHECK(any_nonzero);
 #endif
 }
+
+TEST_CASE("[integration] tokenize parses special tokens as control tokens",
+          "[integration]") {
+#ifndef SOVRANO_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    ModelParams p;
+    p.path = path;
+    p.context_length = 512;
+    p.threads = 4;
+    auto backend = sovrano::make_llama_backend(p);
+
+    // Chat templates embed control tokens as text ("</s>", "<|im_end|>"):
+    // the tokenizer must map the special string to its SINGLE control id
+    // (TinyLlama: "</s>" is the eos token) — not spell it out as text
+    // pieces. Without this the model mimics the tags as plain text and
+    // never emits a real EOS.
+    const auto toks = backend->tokenize("</s>", /*add_special=*/false);
+    REQUIRE(toks.size() == 1);
+    CHECK(toks[0] == backend->eos_token());
+#endif
+}

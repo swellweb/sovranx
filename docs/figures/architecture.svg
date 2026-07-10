@@ -30,9 +30,10 @@
     <rect x="240" y="185" width="360" height="110" rx="4" fill="#E5EBF5" stroke="#3E5C8F" stroke-width="1.4"/>
     <text x="420" y="207" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3E5C8F">Speculative Decoder — self-regulating</text>
     <rect x="258" y="220" width="150" height="58" rx="3" fill="#FBFAF6" stroke="#3E5C8F"/>
-    <text x="333" y="242" text-anchor="middle" font-size="11" font-weight="650" fill="#20242E">Draft source</text>
-    <text x="333" y="258" text-anchor="middle" font-size="10" fill="#5A6072">small model · or n-gram</text>
-    <text x="333" y="271" text-anchor="middle" font-size="10" fill="#5A6072">prompt-lookup (zero cost)</text>
+    <text x="333" y="238" text-anchor="middle" font-size="11" font-weight="650" fill="#20242E">Draft sources (cascade)</text>
+    <text x="333" y="252" text-anchor="middle" font-size="9.5" fill="#5A6072">prompt n-grams · archive of past</text>
+    <text x="333" y="264" text-anchor="middle" font-size="9.5" fill="#5A6072">generations (palimpsest) · grammar</text>
+    <text x="333" y="276" text-anchor="middle" font-size="9.5" fill="#5A6072">(suggeritore) · or a small model</text>
     <rect x="432" y="220" width="150" height="58" rx="3" fill="#FBFAF6" stroke="#3E5C8F"/>
     <text x="507" y="242" text-anchor="middle" font-size="11" font-weight="650" fill="#20242E">Batch verifier</text>
     <text x="507" y="258" text-anchor="middle" font-size="10" fill="#5A6072">one forward pass</text>

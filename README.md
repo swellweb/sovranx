@@ -9,6 +9,30 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
 
 > **On a CPU, never compute the same thing twice.**
 
+## What Reame is for
+
+Reame is built for **narrow, repetitive AI workloads over your own data, on
+hardware you already pay for** — the case where the answer lives in the
+context you provide, not in the model's general knowledge. That is exactly
+where a small model matches a frontier one (we measured 100% accuracy on
+long-context extraction with a 7B on a free 2-core ARM box) and where
+Reame's memory makes request #100 cost a fraction of request #1.
+
+| Use case | Why it fits | Suggested model |
+|---|---|---|
+| Document extraction & classification (RAG, invoices, tickets, scraping) | answers live in the context; prompts share prefixes → the disk cache pays | Qwen2.5 1.5B–7B |
+| Batch pipelines (tag 10k products overnight, meta descriptions, email triage) | repetitive by nature → Palimpsest drafts them; €0 per token, no rate limits | Qwen2.5 1.5B–3B |
+| AI features inside a thin-margin SaaS | a €5 VPS instead of a metered API keeps unit economics alive | Qwen2.5 1.5B–7B |
+| Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | Qwen2.5 7B |
+| Private code autocomplete (Continue.dev + OpenAI-compatible API) | line-level completion is a narrow task; code never leaves the laptop | Qwen2.5-Coder 1.5B |
+
+**What Reame is NOT for** — said plainly, because trust is built here: a
+general-purpose ChatGPT replacement (frontier reasoning and broad knowledge
+need frontier parameter counts), agentic coding assistants, or creative
+long-form writing at scale. If your task needs a 100B-class brain, buy one;
+if it needs *your documents processed privately, forever, at zero marginal
+cost* — that's a realm you can own.
+
 - 🗂️ **Persistent shared-prefix KV cache** — prompt prefixes are snapshotted to disk
   (zstd, checksummed, LRU-budgeted) and reused **across different prompts, restarts
   and processes**. A system prompt is paid for once, by the first user.

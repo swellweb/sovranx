@@ -252,6 +252,13 @@ The hundredth request costs a fraction of the first — the system prompt was
 paid once, similar answers draft themselves from the archive, structure is
 speculated for free. No other server has that property.
 
+## Support
+
+Reame is free, MIT-licensed and built on nights and free-tier hardware. If it
+saves you API bills or GPU rent, consider [sponsoring](https://github.com/sponsors/swellweb)
+the work — sponsorships fund the roadmap: ARCA (the shared memory daemon),
+warm-ahead prefill, and first-class MoE serving.
+
 ## Acknowledgments
 
 Reame stands on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp)

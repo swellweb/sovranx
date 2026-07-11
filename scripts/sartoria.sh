@@ -26,16 +26,16 @@ CALIB="${2:?missing calibration text}"
 OUT="${3:?missing output path}"
 QTYPE="${4:-Q3_K_M}"
 
-TOOLS="${SOVRANO_LLAMA_TOOLS:-}"
+TOOLS="${SOVRANX_LLAMA_TOOLS:-}"
 if [[ -z "$TOOLS" ]]; then
     echo "Building llama.cpp tools (one-off)..."
-    cmake -S "$(dirname "$0")/../third_party/llama.cpp" -B /tmp/sovrano-llama-tools \
+    cmake -S "$(dirname "$0")/../third_party/llama.cpp" -B /tmp/sovranx-llama-tools \
         -DCMAKE_BUILD_TYPE=Release -DLLAMA_BUILD_TOOLS=ON \
         -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF \
         -DGGML_METAL=OFF -DLLAMA_CURL=OFF > /dev/null
-    cmake --build /tmp/sovrano-llama-tools --parallel \
+    cmake --build /tmp/sovranx-llama-tools --parallel \
         --target llama-imatrix llama-quantize > /dev/null
-    TOOLS=/tmp/sovrano-llama-tools/bin
+    TOOLS=/tmp/sovranx-llama-tools/bin
 fi
 
 IMATRIX="$(mktemp -t sartoria).imatrix"

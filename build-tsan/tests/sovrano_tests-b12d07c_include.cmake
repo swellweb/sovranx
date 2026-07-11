@@ -1,5 +1,0 @@
-if(EXISTS "/Volumes/Progetti Sviluppo/IA/Sovrano/build-tsan/tests/sovrano_tests-b12d07c_tests.cmake")
-  include("/Volumes/Progetti Sviluppo/IA/Sovrano/build-tsan/tests/sovrano_tests-b12d07c_tests.cmake")
-else()
-  add_test(sovrano_tests_NOT_BUILT-b12d07c sovrano_tests_NOT_BUILT-b12d07c)
-endif()

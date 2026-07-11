@@ -1,10 +1,10 @@
-#include "sovrano/cache/cache_serializer.hpp"
+#include "sovranx/cache/cache_serializer.hpp"
 
-#ifdef SOVRANO_HAS_ZSTD
+#ifdef SOVRANX_HAS_ZSTD
 #include <zstd.h>
 #endif
 
-namespace sovrano::cache {
+namespace sovranx::cache {
 
 namespace {
 
@@ -24,7 +24,7 @@ void KVCacheSerializer::deserialize(LlamaBackend& backend,
 }
 
 std::vector<char> KVCacheSerializer::compress(const std::vector<char>& data) {
-#ifdef SOVRANO_HAS_ZSTD
+#ifdef SOVRANX_HAS_ZSTD
     const std::size_t bound = ZSTD_compressBound(data.size());
     std::vector<char> out(1 + bound);
     out[0] = kFlagZstd;
@@ -53,7 +53,7 @@ std::vector<char> KVCacheSerializer::decompress(const std::vector<char>& data) {
         return std::vector<char>(data.begin() + 1, data.end());
 
     if (data[0] == kFlagZstd) {
-#ifdef SOVRANO_HAS_ZSTD
+#ifdef SOVRANX_HAS_ZSTD
         const unsigned long long raw_size =
             ZSTD_getFrameContentSize(data.data() + 1, data.size() - 1);
         if (raw_size == ZSTD_CONTENTSIZE_ERROR ||
@@ -68,7 +68,7 @@ std::vector<char> KVCacheSerializer::decompress(const std::vector<char>& data) {
         return out;
 #else
         throw CacheError(
-            "cache entry is zstd-compressed but sovrano was built without "
+            "cache entry is zstd-compressed but sovranx was built without "
             "zstd");
 #endif
     }
@@ -87,4 +87,4 @@ std::uint64_t KVCacheSerializer::checksum(const std::vector<char>& data) {
     return hash;
 }
 
-}  // namespace sovrano::cache
+}  // namespace sovranx::cache

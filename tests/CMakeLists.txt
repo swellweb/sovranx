@@ -8,7 +8,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(sovrano_tests
+add_executable(sovranx_tests
     unit/test_config.cpp
     unit/test_logger.cpp
     unit/test_model.cpp
@@ -25,17 +25,17 @@ add_executable(sovrano_tests
     unit/test_corpus_index.cpp
 )
 
-if(SOVRANO_BUILD_SERVER)
-    target_sources(sovrano_tests PRIVATE
+if(SOVRANX_BUILD_SERVER)
+    target_sources(sovranx_tests PRIVATE
         unit/test_http_parser.cpp
         unit/test_api_handler.cpp
         unit/test_http_server.cpp
     )
-    target_link_libraries(sovrano_tests PRIVATE sovrano_server)
+    target_link_libraries(sovranx_tests PRIVATE sovranx_server)
 endif()
-target_link_libraries(sovrano_tests PRIVATE
-    sovrano_core
-    sovrano_utils
+target_link_libraries(sovranx_tests PRIVATE
+    sovranx_core
+    sovranx_utils
     Catch2::Catch2WithMain
 )
 
@@ -45,4 +45,4 @@ include(Catch)
 # downloaded model); tell ctest that means "skipped", not "failed".
 # TIMEOUT turns a hang (e.g. a stuck socket test) into a failure instead
 # of blocking the suite indefinitely.
-catch_discover_tests(sovrano_tests PROPERTIES SKIP_RETURN_CODE 4 TIMEOUT 300)
+catch_discover_tests(sovranx_tests PROPERTIES SKIP_RETURN_CODE 4 TIMEOUT 300)

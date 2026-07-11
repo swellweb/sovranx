@@ -1,2 +1,0 @@
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar qc libsovrano_utils.a CMakeFiles/sovrano_utils.dir/utils/config.cpp.o CMakeFiles/sovrano_utils.dir/utils/logger.cpp.o
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib libsovrano_utils.a

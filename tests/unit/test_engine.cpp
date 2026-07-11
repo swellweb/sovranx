@@ -1,4 +1,4 @@
-// Isolated tests for sovrano::core::SovranoEngine over MockBackend.
+// Isolated tests for sovranx::core::SovranXEngine over MockBackend.
 // Generation is driven with scripted logits (decode_queue) and greedy
 // sampling so every expected output is derived by hand.
 
@@ -15,20 +15,20 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/cache/cache_manager.hpp"
-#include "sovrano/core/engine.hpp"
-#include "sovrano/speculative/speculative_decoder.hpp"
+#include "sovranx/cache/cache_manager.hpp"
+#include "sovranx/core/engine.hpp"
+#include "sovranx/speculative/speculative_decoder.hpp"
 
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::core::EngineError;
-using sovrano::core::GenerationConfig;
-using sovrano::core::SovranoEngine;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::core::EngineError;
+using sovranx::core::GenerationConfig;
+using sovranx::core::SovranXEngine;
 
 namespace {
 
-SovranoEngine::Config valid_config() {
-    SovranoEngine::Config c;
+SovranXEngine::Config valid_config() {
+    SovranXEngine::Config c;
     c.model_path = "/models/test.gguf";
     c.n_ctx = 2048;
     c.n_threads = 4;
@@ -43,11 +43,11 @@ GenerationConfig greedy(int max_tokens = 16) {
     return g;
 }
 
-std::pair<SovranoEngine, MockBackend*> make_engine(
-    const SovranoEngine::Config& cfg = valid_config()) {
+std::pair<SovranXEngine, MockBackend*> make_engine(
+    const SovranXEngine::Config& cfg = valid_config()) {
     auto backend = std::make_unique<MockBackend>();
     MockBackend* raw = backend.get();
-    return {SovranoEngine(cfg, std::move(backend)), raw};
+    return {SovranXEngine(cfg, std::move(backend)), raw};
 }
 
 // Logits with the argmax at `idx` (vocab of `n`).
@@ -81,12 +81,12 @@ TEST_CASE("engine constructor rejects invalid config") {
     SECTION("non-positive n_threads") { cfg.n_threads = 0; }
     SECTION("invalid kv_cache_type") { cfg.kv_cache_type = "q2_banana"; }
 
-    CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
+    CHECK_THROWS_AS(SovranXEngine(cfg, std::make_unique<MockBackend>()),
                     EngineError);
 }
 
 TEST_CASE("engine constructor rejects null backend") {
-    CHECK_THROWS_AS(SovranoEngine(valid_config(), nullptr), EngineError);
+    CHECK_THROWS_AS(SovranXEngine(valid_config(), nullptr), EngineError);
 }
 
 TEST_CASE("count_tokens returns the tokenizer's token count") {
@@ -258,7 +258,7 @@ TEST_CASE("engine with a draft backend generates through the speculative decoder
     MockBackend* draft_raw = draft.get();
     script_spec(target_raw, draft_raw);
 
-    SovranoEngine engine(cfg, std::move(target), std::move(draft));
+    SovranXEngine engine(cfg, std::move(target), std::move(draft));
 
     CHECK(engine.generate("hi", greedy()) == "ab");
     CHECK_FALSE(target_raw->decode_batch_calls.empty());  // speculative path
@@ -286,7 +286,7 @@ TEST_CASE("engine with prompt lookup speculates without a draft backend") {
     mock->decode_batch_queue = {{spec_peak(6, 1), spec_peak(6, 2)},
                                 {spec_peak(6, 5)}};
 
-    SovranoEngine engine(cfg, std::move(target));
+    SovranXEngine engine(cfg, std::move(target));
 
     CHECK(engine.generate("rep", greedy()) == "xy");
     CHECK_FALSE(mock->decode_batch_calls.empty());  // speculating...
@@ -302,7 +302,7 @@ TEST_CASE("engine ignores the draft backend when use_speculative is off") {
     MockBackend* target_raw = target.get();
     script_foobar(target_raw);
 
-    SovranoEngine engine(cfg, std::move(target), std::move(draft));
+    SovranXEngine engine(cfg, std::move(target), std::move(draft));
 
     CHECK(engine.generate("hi", greedy()) == "foobar");
     CHECK(target_raw->decode_batch_calls.empty());  // classic path
@@ -330,7 +330,7 @@ TEST_CASE("parallel engine serves two concurrent generations") {
     mock->seq_decode_queues[0] = mock->seq_template;
     mock->seq_decode_queues[1] = mock->seq_template;
 
-    SovranoEngine engine(cfg, std::move(backend));
+    SovranXEngine engine(cfg, std::move(backend));
     CHECK(engine.parallel_capable());
 
     std::string out1, out2;
@@ -369,7 +369,7 @@ TEST_CASE("conclave: parallel attempts elect a consensus answer") {
     mock->seq_template = {peak(6, 3), peak(6, 4), peak(6, 5)};
     for (int s = 0; s < 3; ++s) mock->seq_decode_queues[s] = mock->seq_template;
 
-    SovranoEngine engine(cfg, std::move(backend));
+    SovranXEngine engine(cfg, std::move(backend));
     CHECK(engine.generate_best("hi", greedy(), 3) == "xy");
     CHECK_FALSE(mock->decode_seqs_calls.empty());  // attempts interleaved
 }
@@ -446,7 +446,7 @@ TEST_CASE("conclave: consensus reached in parallel stops the straggler") {
     slow.push_back(peak(6, 5));
     mock->seq_decode_queues[2] = slow;
 
-    SovranoEngine engine(cfg, std::move(backend));
+    SovranXEngine engine(cfg, std::move(backend));
     auto gen = greedy(/*max_tokens=*/700);
     CHECK(engine.generate_best("hi", gen, 3) == "8");
     // Early stop: a run to the end of the straggler's script would take
@@ -460,18 +460,18 @@ TEST_CASE("parallel mode rejects incompatible feature combinations") {
     cfg.n_parallel = 2;
 
     SECTION("with a draft model") {
-        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>(),
+        CHECK_THROWS_AS(SovranXEngine(cfg, std::make_unique<MockBackend>(),
                                       std::make_unique<MockBackend>()),
                         EngineError);
     }
     SECTION("with prompt lookup") {
         cfg.use_prompt_lookup = true;
-        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
+        CHECK_THROWS_AS(SovranXEngine(cfg, std::make_unique<MockBackend>()),
                         EngineError);
     }
     SECTION("with the disk cache") {
         cfg.cache_dir = "/tmp/somewhere";
-        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
+        CHECK_THROWS_AS(SovranXEngine(cfg, std::make_unique<MockBackend>()),
                         EngineError);
     }
 }
@@ -528,7 +528,7 @@ struct CacheTempDir {
     std::filesystem::path path;
     CacheTempDir() {
         path = std::filesystem::temp_directory_path() /
-               ("sovrano-engine-cache-" + std::to_string(counter++));
+               ("sovranx-engine-cache-" + std::to_string(counter++));
         std::filesystem::remove_all(path);
         std::filesystem::create_directories(path);
     }
@@ -563,7 +563,7 @@ TEST_CASE("prompt cache: cold run snapshots the prefix, warm run skips prefill")
         script_cached(mock, /*with_prefill_logits=*/true);
         mock->state_data_result = {'S', '1'};
 
-        SovranoEngine engine(cfg, std::move(backend));
+        SovranXEngine engine(cfg, std::move(backend));
         CHECK(engine.generate("hi", greedy()) == "tok");
 
         CHECK(mock->reset_calls == 1);
@@ -581,7 +581,7 @@ TEST_CASE("prompt cache: cold run snapshots the prefix, warm run skips prefill")
         MockBackend* mock = backend.get();
         script_cached(mock, /*with_prefill_logits=*/false);
 
-        SovranoEngine engine(cfg, std::move(backend));
+        SovranXEngine engine(cfg, std::move(backend));
         CHECK(engine.generate("hi", greedy()) == "tok");
 
         REQUIRE(mock->set_state_calls.size() == 1);
@@ -604,7 +604,7 @@ TEST_CASE("sessions: with a cache dir, load restores the snapshot instead of re-
     script_cached(mock, true);
     mock->state_data_result = {'K', 'V'};
 
-    SovranoEngine engine(cfg, std::move(backend));
+    SovranXEngine engine(cfg, std::move(backend));
     engine.generate("hi", greedy());  // context: {1, 2, 3}
 
     const auto id = engine.create_session();
@@ -630,7 +630,7 @@ TEST_CASE("engine exposes cache stats when the cache is enabled") {
     MockBackend* mock = backend.get();
     script_cached(mock, true);
 
-    SovranoEngine engine(cfg, std::move(backend));
+    SovranXEngine engine(cfg, std::move(backend));
     CHECK(engine.cache_stats() != nullptr);
 
     engine.generate("hi", greedy());
@@ -662,7 +662,7 @@ TEST_CASE("without a cache dir the classic prefill path is unchanged") {
 namespace {
 
 std::string integration_model_path() {
-    if (const char* env = std::getenv("SOVRANO_TEST_MODEL")) return env;
+    if (const char* env = std::getenv("SOVRANX_TEST_MODEL")) return env;
     return "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 }
 
@@ -674,7 +674,7 @@ bool file_exists(const std::string& path) {
 
 TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -683,7 +683,7 @@ TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
              " (run scripts/download_models.sh)");
 
     CacheTempDir dir;
-    SovranoEngine::Config cfg;
+    SovranXEngine::Config cfg;
     cfg.model_path = path;
     cfg.n_ctx = 256;
     cfg.n_threads = 4;
@@ -694,14 +694,14 @@ TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
 
     std::string cold, warm;
     {
-        SovranoEngine engine(cfg);
+        SovranXEngine engine(cfg);
         cold = engine.generate(prompt, greedy(8));
     }
     // A snapshot landed on disk.
     CHECK(std::filesystem::directory_iterator(dir.path) !=
           std::filesystem::directory_iterator{});
     {
-        SovranoEngine engine(cfg);  // fresh process-equivalent, same cache
+        SovranXEngine engine(cfg);  // fresh process-equivalent, same cache
         warm = engine.generate(prompt, greedy(8));
     }
 
@@ -713,7 +713,7 @@ TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
 
 TEST_CASE("[integration] parallel engine: 3 users cost far less than 3x one",
           "[integration][parbench]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -722,13 +722,13 @@ TEST_CASE("[integration] parallel engine: 3 users cost far less than 3x one",
              " (run scripts/download_models.sh)");
 
     const auto run = [&](int n_parallel, int n_requests) {
-        SovranoEngine::Config cfg;
+        SovranXEngine::Config cfg;
         cfg.model_path = path;
         cfg.n_ctx = 1024;  // total budget shared across sequences
         cfg.n_threads = 4;
         cfg.n_parallel = n_parallel;
         cfg.use_speculative = false;
-        SovranoEngine engine(cfg);
+        SovranXEngine engine(cfg);
 
         const auto t0 = std::chrono::steady_clock::now();
         std::vector<std::string> outs(static_cast<std::size_t>(n_requests));
@@ -774,7 +774,7 @@ TEST_CASE("[integration] parallel engine: 3 users cost far less than 3x one",
 
 TEST_CASE("[integration] engine generates deterministic greedy text",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -782,11 +782,11 @@ TEST_CASE("[integration] engine generates deterministic greedy text",
         SKIP("model file not found: " + path +
              " (run scripts/download_models.sh)");
 
-    SovranoEngine::Config cfg;
+    SovranXEngine::Config cfg;
     cfg.model_path = path;
     cfg.n_ctx = 256;
     cfg.n_threads = 4;
-    SovranoEngine engine(cfg);
+    SovranXEngine engine(cfg);
 
     const auto out1 = engine.generate("The capital of Italy is", greedy(8));
     CHECK(!out1.empty());

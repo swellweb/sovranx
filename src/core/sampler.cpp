@@ -1,10 +1,10 @@
-#include "sovrano/core/sampler.hpp"
+#include "sovranx/core/sampler.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <numeric>
 
-namespace sovrano::core {
+namespace sovranx::core {
 
 Sampler::Sampler(const GenerationConfig& cfg)
     : cfg_(cfg), rng_(static_cast<std::mt19937::result_type>(cfg.seed)) {}
@@ -119,4 +119,4 @@ TokenId Sampler::sample(std::vector<float> logits,
     return draw(probs);
 }
 
-}  // namespace sovrano::core
+}  // namespace sovranx::core

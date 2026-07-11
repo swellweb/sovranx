@@ -1,8 +1,8 @@
-#include "sovrano/speculative/form_draft.hpp"
+#include "sovranx/speculative/form_draft.hpp"
 
 #include <cctype>
 
-namespace sovrano::speculative {
+namespace sovranx::speculative {
 
 namespace {
 
@@ -55,4 +55,4 @@ std::string FormDraft::propose(const std::string& tail) {
     return {};
 }
 
-}  // namespace sovrano::speculative
+}  // namespace sovranx::speculative

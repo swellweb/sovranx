@@ -18,12 +18,12 @@
 #include <nlohmann/json.hpp>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/server/http_server.hpp"
+#include "sovranx/server/http_server.hpp"
 
 using nlohmann::json;
-using sovrano::test::MockBackend;
-using sovrano::core::SovranoEngine;
-using sovrano::server::HttpServer;
+using sovranx::test::MockBackend;
+using sovranx::core::SovranXEngine;
+using sovranx::server::HttpServer;
 
 namespace {
 
@@ -33,8 +33,8 @@ std::vector<float> peak(std::size_t n, std::size_t idx) {
     return v;
 }
 
-std::shared_ptr<SovranoEngine> make_engine() {
-    SovranoEngine::Config ec;
+std::shared_ptr<SovranXEngine> make_engine() {
+    SovranXEngine::Config ec;
     ec.model_path = "/models/test.gguf";
     ec.n_ctx = 2048;
     ec.n_threads = 4;
@@ -44,7 +44,7 @@ std::shared_ptr<SovranoEngine> make_engine() {
     backend->tokenize_result = {1, 2};
     backend->piece_map = {{3, "foo"}, {0, "bar"}};
     backend->decode_queue = {peak(5, 3), peak(5, 0), peak(5, 4)};
-    return std::make_shared<SovranoEngine>(ec, std::move(backend));
+    return std::make_shared<SovranXEngine>(ec, std::move(backend));
 }
 
 // Blocking one-shot HTTP client: connect, send, read to EOF.

@@ -1,8 +1,8 @@
-#include "sovrano/speculative/draft_generator.hpp"
+#include "sovranx/speculative/draft_generator.hpp"
 
 #include <utility>
 
-namespace sovrano::speculative {
+namespace sovranx::speculative {
 
 DraftGenerator::DraftGenerator(LlamaBackend& draft_backend, const Config& cfg)
     : backend_(draft_backend), cfg_(cfg) {}
@@ -37,4 +37,4 @@ DraftResult DraftGenerator::generate_draft(TokenId last_token,
     return result;
 }
 
-}  // namespace sovrano::speculative
+}  // namespace sovranx::speculative

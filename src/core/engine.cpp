@@ -1,4 +1,4 @@
-#include "sovrano/core/engine.hpp"
+#include "sovranx/core/engine.hpp"
 
 #include <atomic>
 #include <map>
@@ -10,20 +10,20 @@
 #include <filesystem>
 #include <thread>
 
-#include "sovrano/cache/cache_manager.hpp"
-#include "sovrano/cache/prefix_cache.hpp"
-#include "sovrano/core/conclave.hpp"
-#include "sovrano/core/model.hpp"
-#include "sovrano/core/sampler.hpp"
-#include "sovrano/core/scheduler.hpp"
-#include "sovrano/palimpsest/corpus_index.hpp"
-#include "sovrano/speculative/speculative_decoder.hpp"
+#include "sovranx/cache/cache_manager.hpp"
+#include "sovranx/cache/prefix_cache.hpp"
+#include "sovranx/core/conclave.hpp"
+#include "sovranx/core/model.hpp"
+#include "sovranx/core/sampler.hpp"
+#include "sovranx/core/scheduler.hpp"
+#include "sovranx/palimpsest/corpus_index.hpp"
+#include "sovranx/speculative/speculative_decoder.hpp"
 
-namespace sovrano::core {
+namespace sovranx::core {
 
 namespace {
 
-void validate(const SovranoEngine::Config& c) {
+void validate(const SovranXEngine::Config& c) {
     if (c.model_path.empty())
         throw EngineError("model_path is empty");
     if (c.n_ctx <= 0)
@@ -51,7 +51,7 @@ void validate(const SovranoEngine::Config& c) {
     }
 }
 
-ModelParams to_model_params(const SovranoEngine::Config& c) {
+ModelParams to_model_params(const SovranXEngine::Config& c) {
     ModelParams p;
     p.path = c.model_path;
     p.context_length = c.n_ctx;
@@ -66,7 +66,7 @@ ModelParams to_model_params(const SovranoEngine::Config& c) {
 
 }  // namespace
 
-struct SovranoEngine::Impl {
+struct SovranXEngine::Impl {
     std::unique_ptr<LlamaBackend> backend;
     std::unique_ptr<LlamaBackend> draft_backend;
     std::unique_ptr<speculative::SpeculativeDecoder> decoder;
@@ -120,8 +120,8 @@ struct SovranoEngine::Impl {
     std::uint64_t next_session_id = 1;
 };
 
-SovranoEngine::SovranoEngine(const Config& config)
-    : SovranoEngine(
+SovranXEngine::SovranXEngine(const Config& config)
+    : SovranXEngine(
           config,
           [&config] {
               validate(config);  // fail fast, before touching llama.cpp
@@ -135,11 +135,11 @@ SovranoEngine::SovranoEngine(const Config& config)
               return make_llama_backend(params);
           }()) {}
 
-SovranoEngine::SovranoEngine(const Config& config,
+SovranXEngine::SovranXEngine(const Config& config,
                              std::unique_ptr<LlamaBackend> backend)
-    : SovranoEngine(config, std::move(backend), nullptr) {}
+    : SovranXEngine(config, std::move(backend), nullptr) {}
 
-SovranoEngine::SovranoEngine(const Config& config,
+SovranXEngine::SovranXEngine(const Config& config,
                              std::unique_ptr<LlamaBackend> backend,
                              std::unique_ptr<LlamaBackend> draft_backend) {
     validate(config);
@@ -192,11 +192,11 @@ SovranoEngine::SovranoEngine(const Config& config,
     }
 }
 
-SovranoEngine::~SovranoEngine() = default;
-SovranoEngine::SovranoEngine(SovranoEngine&&) noexcept = default;
-SovranoEngine& SovranoEngine::operator=(SovranoEngine&&) noexcept = default;
+SovranXEngine::~SovranXEngine() = default;
+SovranXEngine::SovranXEngine(SovranXEngine&&) noexcept = default;
+SovranXEngine& SovranXEngine::operator=(SovranXEngine&&) noexcept = default;
 
-std::string SovranoEngine::generate(const std::string& prompt,
+std::string SovranXEngine::generate(const std::string& prompt,
                                     const GenerationConfig& gen_config) {
     std::string out;
     generate_stream(
@@ -209,7 +209,7 @@ std::string SovranoEngine::generate(const std::string& prompt,
     return out;
 }
 
-std::string SovranoEngine::generate_best(const std::string& prompt,
+std::string SovranXEngine::generate_best(const std::string& prompt,
                                          const GenerationConfig& gen_config,
                                          int n, int* consensus_votes) {
     if (consensus_votes != nullptr) *consensus_votes = 1;
@@ -290,7 +290,7 @@ std::string SovranoEngine::generate_best(const std::string& prompt,
     return outs[elected];
 }
 
-void SovranoEngine::generate_stream(
+void SovranXEngine::generate_stream(
     const std::string& prompt,
     std::function<bool(const std::string& token)> callback,
     const GenerationConfig& gen_config) {
@@ -374,7 +374,7 @@ void SovranoEngine::generate_stream(
     pimpl_->context_tokens = std::move(tokens);
 }
 
-std::string SovranoEngine::create_session() {
+std::string SovranXEngine::create_session() {
     const std::string id = "sess-" + std::to_string(pimpl_->next_session_id++);
     pimpl_->sessions.emplace(id, std::vector<TokenId>{});
     return id;
@@ -391,7 +391,7 @@ std::string session_cache_key(const std::string& model_tag,
 
 }  // namespace
 
-void SovranoEngine::save_session(const std::string& session_id) {
+void SovranXEngine::save_session(const std::string& session_id) {
     const auto it = pimpl_->sessions.find(session_id);
     if (it == pimpl_->sessions.end())
         throw EngineError("unknown session: " + session_id);
@@ -402,7 +402,7 @@ void SovranoEngine::save_session(const std::string& session_id) {
             *pimpl_->backend, static_cast<std::uint32_t>(it->second.size()));
 }
 
-void SovranoEngine::load_session(const std::string& session_id) {
+void SovranXEngine::load_session(const std::string& session_id) {
     const auto it = pimpl_->sessions.find(session_id);
     if (it == pimpl_->sessions.end())
         throw EngineError("unknown session: " + session_id);
@@ -418,35 +418,35 @@ void SovranoEngine::load_session(const std::string& session_id) {
     pimpl_->context_tokens = it->second;
 }
 
-void SovranoEngine::delete_session(const std::string& session_id) {
+void SovranXEngine::delete_session(const std::string& session_id) {
     if (pimpl_->sessions.erase(session_id) == 0)
         throw EngineError("unknown session: " + session_id);
 }
 
-int SovranoEngine::context_size() const {
+int SovranXEngine::context_size() const {
     return static_cast<int>(pimpl_->backend->context_length());
 }
 
-int SovranoEngine::vocab_size() const {
+int SovranXEngine::vocab_size() const {
     return pimpl_->backend->vocab_size();
 }
 
-int SovranoEngine::count_tokens(const std::string& text) const {
+int SovranXEngine::count_tokens(const std::string& text) const {
     return static_cast<int>(
         pimpl_->backend->tokenize(text, /*add_special=*/true).size());
 }
 
-const speculative::SpeculativeMetrics* SovranoEngine::speculative_metrics()
+const speculative::SpeculativeMetrics* SovranXEngine::speculative_metrics()
     const {
     return pimpl_->decoder == nullptr ? nullptr : &pimpl_->decoder->metrics();
 }
 
-const cache::CacheStats* SovranoEngine::cache_stats() const {
+const cache::CacheStats* SovranXEngine::cache_stats() const {
     return pimpl_->cache == nullptr ? nullptr : &pimpl_->cache->stats();
 }
 
-bool SovranoEngine::parallel_capable() const {
+bool SovranXEngine::parallel_capable() const {
     return pimpl_->scheduler != nullptr;
 }
 
-}  // namespace sovrano::core
+}  // namespace sovranx::core

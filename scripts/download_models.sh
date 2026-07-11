@@ -51,4 +51,4 @@ fi
 
 echo
 echo "Integration tests pick up models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-echo "automatically, or set SOVRANO_TEST_MODEL=/path/to/model.gguf"
+echo "automatically, or set SOVRANX_TEST_MODEL=/path/to/model.gguf"

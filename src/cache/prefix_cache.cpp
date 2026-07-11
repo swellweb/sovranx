@@ -1,10 +1,10 @@
-#include "sovrano/cache/prefix_cache.hpp"
+#include "sovranx/cache/prefix_cache.hpp"
 
 #include <algorithm>
 
-#include "sovrano/cache/cache_serializer.hpp"
+#include "sovranx/cache/cache_serializer.hpp"
 
-namespace sovrano::cache {
+namespace sovranx::cache {
 
 PrefixCache::PrefixCache(CacheManager& manager, std::string model_tag,
                          int block_tokens)
@@ -65,4 +65,4 @@ std::uint32_t PrefixCache::prefill(const std::vector<TokenId>& prefix,
     return restored;
 }
 
-}  // namespace sovrano::cache
+}  // namespace sovranx::cache

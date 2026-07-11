@@ -11,17 +11,17 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/cache/cache_manager.hpp"
-#include "sovrano/cache/cache_serializer.hpp"
-#include "sovrano/cache/disk_cache_store.hpp"
+#include "sovranx/cache/cache_manager.hpp"
+#include "sovranx/cache/cache_serializer.hpp"
+#include "sovranx/cache/disk_cache_store.hpp"
 
 namespace fs = std::filesystem;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::cache::CacheError;
-using sovrano::cache::CacheManager;
-using sovrano::cache::DiskCacheStore;
-using sovrano::cache::KVCacheSerializer;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::cache::CacheError;
+using sovranx::cache::CacheManager;
+using sovranx::cache::DiskCacheStore;
+using sovranx::cache::KVCacheSerializer;
 
 namespace {
 
@@ -34,7 +34,7 @@ struct TempDir {
     fs::path path;
     TempDir() {
         path = fs::temp_directory_path() /
-               ("sovrano-cache-test-" + std::to_string(counter++));
+               ("sovranx-cache-test-" + std::to_string(counter++));
         fs::remove_all(path);
         fs::create_directories(path);
     }
@@ -57,7 +57,7 @@ TEST_CASE("checksum matches the published FNV-1a 64 test vectors") {
 }
 
 TEST_CASE("compress/decompress round-trips arbitrary bytes") {
-    const auto data = bytes("sovrano kv cache payload 123");
+    const auto data = bytes("sovranx kv cache payload 123");
 
     const auto packed = KVCacheSerializer::compress(data);
     REQUIRE(!packed.empty());
@@ -72,7 +72,7 @@ TEST_CASE("compress round-trips empty input") {
           empty);
 }
 
-#ifdef SOVRANO_HAS_ZSTD
+#ifdef SOVRANX_HAS_ZSTD
 TEST_CASE("zstd shrinks repetitive payloads") {
     const std::vector<char> data(64 * 1024, 'x');
     const auto packed = KVCacheSerializer::compress(data);

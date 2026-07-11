@@ -1,6 +1,6 @@
 // Real llama.cpp backend. This is the ONLY translation unit that includes
 // llama.h; it is compiled only when the submodule is present
-// (SOVRANO_HAS_LLAMA). CPU-only by design: n_gpu_layers = 0.
+// (SOVRANX_HAS_LLAMA). CPU-only by design: n_gpu_layers = 0.
 
 #include <llama.h>
 
@@ -9,10 +9,10 @@
 #include <mutex>
 #include <vector>
 
-#include "sovrano/core/llama_backend.hpp"
-#include "sovrano/core/model.hpp"
+#include "sovranx/core/llama_backend.hpp"
+#include "sovranx/core/model.hpp"
 
-namespace sovrano {
+namespace sovranx {
 
 namespace {
 
@@ -20,10 +20,10 @@ void ensure_backend_init() {
     static std::once_flag flag;
     std::call_once(flag, [] {
         llama_backend_init();
-        // Keep llama.cpp's own logging quiet; Sovrano has its own logger.
+        // Keep llama.cpp's own logging quiet; SovranX has its own logger.
         llama_log_set(
             [](ggml_log_level level, const char* text, void*) {
-                if (level >= GGML_LOG_LEVEL_ERROR || std::getenv("SOVRANO_LLAMA_VERBOSE")) std::fputs(text, stderr);
+                if (level >= GGML_LOG_LEVEL_ERROR || std::getenv("SOVRANX_LLAMA_VERBOSE")) std::fputs(text, stderr);
             },
             nullptr);
     });
@@ -318,4 +318,4 @@ std::unique_ptr<LlamaBackend> make_llama_backend(const ModelParams& params) {
     return std::make_unique<RealLlamaBackend>(params);
 }
 
-}  // namespace sovrano
+}  // namespace sovranx

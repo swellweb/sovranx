@@ -5,11 +5,11 @@
 
 #include <string>
 
-#include "sovrano/server/http_types.hpp"
+#include "sovranx/server/http_types.hpp"
 
-using sovrano::server::HttpResponse;
-using sovrano::server::parse_http_request;
-using sovrano::server::serialize_http_response;
+using sovranx::server::HttpResponse;
+using sovranx::server::parse_http_request;
+using sovranx::server::serialize_http_response;
 
 TEST_CASE("parses a GET request with headers") {
     const auto req = parse_http_request(

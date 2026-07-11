@@ -1,11 +1,11 @@
-#include "sovrano/core/model.hpp"
+#include "sovranx/core/model.hpp"
 
 #include <thread>
 #include <utility>
 
-#include "sovrano/utils/config.hpp"
+#include "sovranx/utils/config.hpp"
 
-namespace sovrano {
+namespace sovranx {
 
 namespace {
 
@@ -114,4 +114,4 @@ std::uint32_t LlamaModel::context_length() const {
     return impl_->backend->context_length();
 }
 
-}  // namespace sovrano
+}  // namespace sovranx

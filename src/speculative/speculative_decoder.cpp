@@ -1,18 +1,18 @@
-#include "sovrano/speculative/speculative_decoder.hpp"
+#include "sovranx/speculative/speculative_decoder.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <utility>
 
-#include "sovrano/core/sampler.hpp"
-#include "sovrano/palimpsest/corpus_index.hpp"
-#include "sovrano/speculative/batch_verifier.hpp"
-#include "sovrano/speculative/draft_generator.hpp"
-#include "sovrano/speculative/form_draft.hpp"
-#include "sovrano/speculative/prompt_lookup.hpp"
+#include "sovranx/core/sampler.hpp"
+#include "sovranx/palimpsest/corpus_index.hpp"
+#include "sovranx/speculative/batch_verifier.hpp"
+#include "sovranx/speculative/draft_generator.hpp"
+#include "sovranx/speculative/form_draft.hpp"
+#include "sovranx/speculative/prompt_lookup.hpp"
 
-namespace sovrano::speculative {
+namespace sovranx::speculative {
 
 namespace {
 
@@ -300,4 +300,4 @@ void SpeculativeDecoder::maybe_auto_disable() {
         speculative_active_ = false;
 }
 
-}  // namespace sovrano::speculative
+}  // namespace sovranx::speculative

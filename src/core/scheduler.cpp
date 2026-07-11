@@ -1,4 +1,4 @@
-#include "sovrano/core/scheduler.hpp"
+#include "sovranx/core/scheduler.hpp"
 
 #include <algorithm>
 #include <deque>
@@ -6,9 +6,9 @@
 #include <mutex>
 #include <utility>
 
-#include "sovrano/core/sampler.hpp"
+#include "sovranx/core/sampler.hpp"
 
-namespace sovrano::core {
+namespace sovranx::core {
 
 namespace {
 
@@ -241,4 +241,4 @@ bool Scheduler::idle() const {
     return pimpl_->active.empty() && pimpl_->pending.empty();
 }
 
-}  // namespace sovrano::core
+}  // namespace sovranx::core

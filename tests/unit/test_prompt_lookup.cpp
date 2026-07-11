@@ -5,10 +5,10 @@
 
 #include <vector>
 
-#include "sovrano/speculative/prompt_lookup.hpp"
+#include "sovranx/speculative/prompt_lookup.hpp"
 
-using sovrano::TokenId;
-using sovrano::speculative::PromptLookup;
+using sovranx::TokenId;
+using sovranx::speculative::PromptLookup;
 
 namespace {
 using Tokens = std::vector<TokenId>;

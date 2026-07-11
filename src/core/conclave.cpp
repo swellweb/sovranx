@@ -1,10 +1,10 @@
-#include "sovrano/core/conclave.hpp"
+#include "sovranx/core/conclave.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <set>
 
-namespace sovrano::core {
+namespace sovranx::core {
 
 namespace {
 
@@ -137,4 +137,4 @@ std::size_t elect(const std::vector<std::string>& candidates) {
     return best;
 }
 
-}  // namespace sovrano::core
+}  // namespace sovranx::core

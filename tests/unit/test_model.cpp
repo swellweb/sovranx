@@ -1,4 +1,4 @@
-// Isolated tests for sovrano::LlamaModel and ModelParams::from_config.
+// Isolated tests for sovranx::LlamaModel and ModelParams::from_config.
 // Every llama.cpp dependency is replaced by MockBackend; the only test that
 // touches the real backend is the integration section at the bottom, which
 // SKIPs when no model file is available.
@@ -12,15 +12,15 @@
 #include <utility>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/core/model.hpp"
-#include "sovrano/utils/config.hpp"
+#include "sovranx/core/model.hpp"
+#include "sovranx/utils/config.hpp"
 
-using sovrano::Config;
-using sovrano::LlamaModel;
-using sovrano::ModelError;
-using sovrano::ModelParams;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
+using sovranx::Config;
+using sovranx::LlamaModel;
+using sovranx::ModelError;
+using sovranx::ModelParams;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
 
 namespace {
 
@@ -211,14 +211,14 @@ TEST_CASE("forward rejects logits/vocab size mismatch from backend") {
 
 // ---------------------------------------------------------------------------
 // Integration (real llama.cpp + real model file). SKIPs when unavailable.
-// Model path: $SOVRANO_TEST_MODEL or models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+// Model path: $SOVRANX_TEST_MODEL or models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
 // (see scripts/download_models.sh).
 // ---------------------------------------------------------------------------
 
 namespace {
 
 std::string integration_model_path() {
-    if (const char* env = std::getenv("SOVRANO_TEST_MODEL")) return env;
+    if (const char* env = std::getenv("SOVRANX_TEST_MODEL")) return env;
     return "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 }
 
@@ -230,7 +230,7 @@ bool file_exists(const std::string& path) {
 
 TEST_CASE("[integration] multi-sequence decode matches sequential decodes",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -244,7 +244,7 @@ TEST_CASE("[integration] multi-sequence decode matches sequential decodes",
     p.threads = 4;
 
     // Reference: two prompts decoded sequentially, single-sequence.
-    auto ref = sovrano::make_llama_backend(p);
+    auto ref = sovranx::make_llama_backend(p);
     const auto prompt_a = ref->tokenize("The capital of Italy is", true);
     const auto prompt_b = ref->tokenize("Water boils at a temperature of", true);
     const auto ref_a = ref->decode(prompt_a);
@@ -253,7 +253,7 @@ TEST_CASE("[integration] multi-sequence decode matches sequential decodes",
     // Same two prompts as ONE interleaved multi-seq batch.
     auto pp = p;
     pp.n_seq_max = 2;
-    auto multi = sovrano::make_llama_backend(pp);
+    auto multi = sovranx::make_llama_backend(pp);
     const auto outs = multi->decode_seqs({{0, prompt_a, 0}, {1, prompt_b, 0}});
 
     REQUIRE(outs.size() == 2);
@@ -286,7 +286,7 @@ TEST_CASE("[integration] multi-sequence decode matches sequential decodes",
 
 TEST_CASE("[integration] real model: tokenize round-trip and forward pass",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -327,7 +327,7 @@ TEST_CASE("[integration] real model: tokenize round-trip and forward pass",
 
 TEST_CASE("[integration] cloned prompt KV yields the prefill's argmax",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -340,7 +340,7 @@ TEST_CASE("[integration] cloned prompt KV yields the prefill's argmax",
     p.context_length = 512;
     p.threads = 4;
     p.n_seq_max = 2;
-    auto backend = sovrano::make_llama_backend(p);
+    auto backend = sovranx::make_llama_backend(p);
 
     // Reference: seq 0 prefills the full prompt.
     const auto prompt = backend->tokenize("The capital of Italy is", true);
@@ -367,7 +367,7 @@ TEST_CASE("[integration] cloned prompt KV yields the prefill's argmax",
 
 TEST_CASE("[integration] tokenize parses special tokens as control tokens",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp (submodule not initialized)");
 #else
     const auto path = integration_model_path();
@@ -379,7 +379,7 @@ TEST_CASE("[integration] tokenize parses special tokens as control tokens",
     p.path = path;
     p.context_length = 512;
     p.threads = 4;
-    auto backend = sovrano::make_llama_backend(p);
+    auto backend = sovranx::make_llama_backend(p);
 
     // Chat templates embed control tokens as text ("</s>", "<|im_end|>"):
     // the tokenizer must map the special string to its SINGLE control id

@@ -1,4 +1,4 @@
-#include "sovrano/server/http_server.hpp"
+#include "sovranx/server/http_server.hpp"
 
 #include <boost/asio.hpp>
 
@@ -7,11 +7,11 @@
 #include <iostream>
 #include <thread>
 
-#include "sovrano/server/api_handler.hpp"
-#include "sovrano/server/http_types.hpp"
-#include "sovrano/utils/logger.hpp"
+#include "sovranx/server/api_handler.hpp"
+#include "sovranx/server/http_types.hpp"
+#include "sovranx/utils/logger.hpp"
 
-namespace sovrano::server {
+namespace sovranx::server {
 
 namespace asio = boost::asio;
 using asio::ip::tcp;
@@ -67,7 +67,7 @@ private:
 
 struct HttpServer::Impl {
     Config cfg;
-    std::shared_ptr<core::SovranoEngine> engine;
+    std::shared_ptr<core::SovranXEngine> engine;
     ApiHandler handler;
     Logger log{std::cout, LogLevel::Info};
 
@@ -78,7 +78,7 @@ struct HttpServer::Impl {
     std::atomic<int> active_connections{0};
     int bound_port = 0;
 
-    Impl(Config c, std::shared_ptr<core::SovranoEngine> e)
+    Impl(Config c, std::shared_ptr<core::SovranXEngine> e)
         : cfg(std::move(c)),
           engine(std::move(e)),
           handler(
@@ -206,7 +206,7 @@ struct HttpServer::Impl {
 };
 
 HttpServer::HttpServer(Config config,
-                       std::shared_ptr<core::SovranoEngine> engine)
+                       std::shared_ptr<core::SovranXEngine> engine)
     : pimpl_(std::make_unique<Impl>(std::move(config), std::move(engine))) {
     if (pimpl_->engine == nullptr)
         throw core::EngineError("HttpServer requires an engine");
@@ -230,7 +230,7 @@ void HttpServer::start() {
 
     impl.accept_thread = std::thread([this] { pimpl_->accept_loop(); });
 
-    impl.log.info("sovrano server listening on " + impl.cfg.host + ":" +
+    impl.log.info("sovranx server listening on " + impl.cfg.host + ":" +
                   std::to_string(impl.bound_port));
 }
 
@@ -250,4 +250,4 @@ bool HttpServer::is_running() const { return pimpl_->running.load(); }
 
 int HttpServer::port() const { return pimpl_->bound_port; }
 
-}  // namespace sovrano::server
+}  // namespace sovranx::server

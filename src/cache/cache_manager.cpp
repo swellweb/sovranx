@@ -1,10 +1,10 @@
-#include "sovrano/cache/cache_manager.hpp"
+#include "sovranx/cache/cache_manager.hpp"
 
 #include <cstring>
 
-#include "sovrano/cache/cache_serializer.hpp"
+#include "sovranx/cache/cache_serializer.hpp"
 
-namespace sovrano::cache {
+namespace sovranx::cache {
 
 namespace {
 
@@ -122,4 +122,4 @@ bool CacheManager::load_state(const std::string& key, LlamaBackend& backend) {
     return true;
 }
 
-}  // namespace sovrano::cache
+}  // namespace sovranx::cache

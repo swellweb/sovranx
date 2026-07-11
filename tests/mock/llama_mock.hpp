@@ -15,9 +15,9 @@
 #include <thread>
 #include <vector>
 
-#include "sovrano/core/llama_backend.hpp"
+#include "sovranx/core/llama_backend.hpp"
 
-namespace sovrano::test {
+namespace sovranx::test {
 
 class MockBackend : public LlamaBackend {
 public:
@@ -211,4 +211,4 @@ private:
     mutable std::mutex mock_mutex_;
 };
 
-}  // namespace sovrano::test
+}  // namespace sovranx::test

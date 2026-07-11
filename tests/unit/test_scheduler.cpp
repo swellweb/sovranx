@@ -7,14 +7,14 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/core/scheduler.hpp"
+#include "sovranx/core/scheduler.hpp"
 
-using sovrano::SeqSlice;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::core::EngineError;
-using sovrano::core::GenerationConfig;
-using sovrano::core::Scheduler;
+using sovranx::SeqSlice;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::core::EngineError;
+using sovranx::core::GenerationConfig;
+using sovranx::core::Scheduler;
 
 namespace {
 

@@ -1,8 +1,8 @@
-#include "sovrano/speculative/prompt_lookup.hpp"
+#include "sovranx/speculative/prompt_lookup.hpp"
 
 #include <algorithm>
 
-namespace sovrano::speculative {
+namespace sovranx::speculative {
 
 PromptLookup::PromptLookup(const Config& cfg) : cfg_(cfg) {}
 
@@ -37,4 +37,4 @@ std::vector<TokenId> PromptLookup::find_draft(
     return {};
 }
 
-}  // namespace sovrano::speculative
+}  // namespace sovranx::speculative

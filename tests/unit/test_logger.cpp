@@ -1,14 +1,14 @@
-// Isolated tests for sovrano::Logger. The output stream is injected
+// Isolated tests for sovranx::Logger. The output stream is injected
 // (ostringstream) and timestamps are disabled for deterministic output.
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <sstream>
 
-#include "sovrano/utils/logger.hpp"
+#include "sovranx/utils/logger.hpp"
 
-using sovrano::Logger;
-using sovrano::LogLevel;
+using sovranx::Logger;
+using sovranx::LogLevel;
 
 TEST_CASE("formats level and message on one line") {
     std::ostringstream out;

@@ -11,17 +11,17 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/server/api_handler.hpp"
+#include "sovranx/server/api_handler.hpp"
 
 using nlohmann::json;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::core::SovranoEngine;
-using sovrano::server::ApiHandler;
-using sovrano::server::HeaderMap;
-using sovrano::server::HttpRequest;
-using sovrano::server::HttpResponse;
-using sovrano::server::ResponseWriter;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::core::SovranXEngine;
+using sovranx::server::ApiHandler;
+using sovranx::server::HeaderMap;
+using sovranx::server::HttpRequest;
+using sovranx::server::HttpResponse;
+using sovranx::server::ResponseWriter;
 
 namespace {
 
@@ -41,19 +41,19 @@ void script_foobar(MockBackend* m) {
 }
 
 struct Fixture {
-    std::unique_ptr<SovranoEngine> engine;
+    std::unique_ptr<SovranXEngine> engine;
     MockBackend* mock = nullptr;
     std::unique_ptr<ApiHandler> handler;
 
     explicit Fixture(ApiHandler::Config cfg = {}) {
-        SovranoEngine::Config ec;
+        SovranXEngine::Config ec;
         ec.model_path = "/models/test.gguf";
         ec.n_ctx = 2048;
         ec.n_threads = 4;
         auto backend = std::make_unique<MockBackend>();
         mock = backend.get();
         script_foobar(mock);
-        engine = std::make_unique<SovranoEngine>(ec, std::move(backend));
+        engine = std::make_unique<SovranXEngine>(ec, std::move(backend));
         handler = std::make_unique<ApiHandler>(cfg, *engine);
     }
 };
@@ -107,7 +107,7 @@ TEST_CASE("health returns ok") {
 
 TEST_CASE("models lists the configured model id") {
     ApiHandler::Config cfg;
-    cfg.model_id = "sovrano-30b";
+    cfg.model_id = "sovranx-30b";
     Fixture f(cfg);
 
     const auto resp = f.handler->handle(request("GET", "/v1/models"));
@@ -115,7 +115,7 @@ TEST_CASE("models lists the configured model id") {
     REQUIRE(resp.status == 200);
     const auto j = json::parse(resp.body);
     CHECK(j["object"] == "list");
-    CHECK(j["data"][0]["id"] == "sovrano-30b");
+    CHECK(j["data"][0]["id"] == "sovranx-30b");
 }
 
 TEST_CASE("unknown path is 404, wrong method 405, invalid JSON 400") {

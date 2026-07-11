@@ -1,14 +1,14 @@
-// Isolated tests for sovrano::Config. No filesystem, no other components:
+// Isolated tests for sovranx::Config. No filesystem, no other components:
 // parsing is exercised via parse_string / std::istringstream only.
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <sstream>
 
-#include "sovrano/utils/config.hpp"
+#include "sovranx/utils/config.hpp"
 
-using sovrano::Config;
-using sovrano::ConfigError;
+using sovranx::Config;
+using sovranx::ConfigError;
 
 TEST_CASE("parses key=value pairs namespaced by section") {
     const auto cfg = Config::parse_string(
@@ -34,11 +34,11 @@ TEST_CASE("trims whitespace, skips blank lines and comments") {
         "\n"
         "# full-line hash comment\n"
         "; full-line semicolon comment\n"
-        "  name   =   sovrano  \n"
+        "  name   =   sovranx  \n"
         "\n");
 
     CHECK(cfg.size() == 1);
-    CHECK(cfg.get_string("name") == "sovrano");
+    CHECK(cfg.get_string("name") == "sovranx");
 }
 
 TEST_CASE("duplicate key: last value wins") {

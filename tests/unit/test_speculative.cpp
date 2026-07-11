@@ -16,25 +16,25 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/core/model.hpp"
-#include "sovrano/palimpsest/corpus_index.hpp"
-#include "sovrano/speculative/acceptance.hpp"
-#include "sovrano/speculative/batch_verifier.hpp"
-#include "sovrano/speculative/draft_generator.hpp"
-#include "sovrano/speculative/speculative_decoder.hpp"
+#include "sovranx/core/model.hpp"
+#include "sovranx/palimpsest/corpus_index.hpp"
+#include "sovranx/speculative/acceptance.hpp"
+#include "sovranx/speculative/batch_verifier.hpp"
+#include "sovranx/speculative/draft_generator.hpp"
+#include "sovranx/speculative/speculative_decoder.hpp"
 
 using Catch::Matchers::WithinAbs;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::core::EngineError;
-using sovrano::core::GenerationConfig;
-using sovrano::core::Sampler;
-using sovrano::speculative::accept_token;
-using sovrano::speculative::BatchVerifier;
-using sovrano::speculative::DraftGenerator;
-using sovrano::speculative::DraftResult;
-using sovrano::speculative::residual_distribution;
-using sovrano::speculative::SpeculativeDecoder;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::core::EngineError;
+using sovranx::core::GenerationConfig;
+using sovranx::core::Sampler;
+using sovranx::speculative::accept_token;
+using sovranx::speculative::BatchVerifier;
+using sovranx::speculative::DraftGenerator;
+using sovranx::speculative::DraftResult;
+using sovranx::speculative::residual_distribution;
+using sovranx::speculative::SpeculativeDecoder;
 
 namespace {
 
@@ -539,10 +539,10 @@ TEST_CASE("lookup mode falls back to a plain step when nothing matches, staying 
 
 TEST_CASE("lookup mode falls back to the corpus when the prompt has no repeats") {
     namespace fs = std::filesystem;
-    const auto dir = fs::temp_directory_path() / "sovrano-spec-corpus";
+    const auto dir = fs::temp_directory_path() / "sovranx-spec-corpus";
     fs::remove_all(dir);
     fs::create_directories(dir);
-    sovrano::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
+    sovranx::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
     // A PREVIOUS generation on this server: after {0, 1} came {2, 3}.
     corpus.observe({9, 0, 1, 2, 3});
 
@@ -573,10 +573,10 @@ TEST_CASE("lookup mode falls back to the corpus when the prompt has no repeats")
 
 TEST_CASE("finished generations are observed into the corpus") {
     namespace fs = std::filesystem;
-    const auto dir = fs::temp_directory_path() / "sovrano-spec-observe";
+    const auto dir = fs::temp_directory_path() / "sovranx-spec-observe";
     fs::remove_all(dir);
     fs::create_directories(dir);
-    sovrano::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
+    sovranx::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
 
     MockBackend target;
     setup(target);
@@ -615,20 +615,20 @@ bool file_exists(const std::string& path) {
 
 TEST_CASE("[integration] speculative equals plain greedy with a real model",
           "[integration]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp");
 #else
-    const auto path = env_or("SOVRANO_TEST_MODEL",
+    const auto path = env_or("SOVRANX_TEST_MODEL",
                              "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf");
     if (!file_exists(path)) SKIP("model file not found: " + path);
 
-    sovrano::ModelParams p;
+    sovranx::ModelParams p;
     p.path = path;
     p.context_length = 256;
     p.threads = 4;
 
-    auto target = sovrano::make_llama_backend(p);
-    auto draft = sovrano::make_llama_backend(p);  // draft == target model
+    auto target = sovranx::make_llama_backend(p);
+    auto draft = sovranx::make_llama_backend(p);  // draft == target model
 
     // Predictable continuation on purpose: single-token and batched CPU
     // kernels differ numerically (x86 repack especially), so a flat
@@ -650,7 +650,7 @@ TEST_CASE("[integration] speculative equals plain greedy with a real model",
     // (observed on x86/AVX2), so the argmax can flip on a near-tie.
     CHECK(spec.metrics().acceptance_rate() > 0.9);
 
-    auto plain_backend = sovrano::make_llama_backend(p);
+    auto plain_backend = sovranx::make_llama_backend(p);
     SpeculativeDecoder plain(*plain_backend, nullptr, {});
     const auto plain_out = plain.generate(prompt, greedy(12));
 
@@ -665,18 +665,18 @@ TEST_CASE("[integration] speculative equals plain greedy with a real model",
 
 TEST_CASE("[integration] speculative is faster with a real draft/target pair",
           "[integration][performance]") {
-#ifndef SOVRANO_HAS_LLAMA
+#ifndef SOVRANX_HAS_LLAMA
     SKIP("built without llama.cpp");
 #else
     const auto target_path = env_or(
-        "SOVRANO_TARGET_MODEL", "models/qwen2.5-1.5b-instruct-q4_k_m.gguf");
+        "SOVRANX_TARGET_MODEL", "models/qwen2.5-1.5b-instruct-q4_k_m.gguf");
     const auto draft_path = env_or(
-        "SOVRANO_DRAFT_MODEL", "models/qwen2.5-0.5b-instruct-q4_k_m.gguf");
+        "SOVRANX_DRAFT_MODEL", "models/qwen2.5-0.5b-instruct-q4_k_m.gguf");
     if (!file_exists(target_path) || !file_exists(draft_path))
         SKIP("target/draft model pair not found (" + target_path + ", " +
              draft_path + ")");
 
-    sovrano::ModelParams tp;
+    sovranx::ModelParams tp;
     tp.path = target_path;
     tp.context_length = 512;
     tp.threads = 4;
@@ -693,7 +693,7 @@ TEST_CASE("[integration] speculative is faster with a real draft/target pair",
     const int n_gen = 64;
 
     // Plain baseline.
-    auto plain_target = sovrano::make_llama_backend(tp);
+    auto plain_target = sovranx::make_llama_backend(tp);
     const auto prompt = plain_target->tokenize(prompt_text, true);
     SpeculativeDecoder plain(*plain_target, nullptr, {});
     const auto t0 = std::chrono::steady_clock::now();
@@ -701,8 +701,8 @@ TEST_CASE("[integration] speculative is faster with a real draft/target pair",
     const auto t1 = std::chrono::steady_clock::now();
 
     // Speculative.
-    auto target = sovrano::make_llama_backend(tp);
-    auto draft = sovrano::make_llama_backend(sp);
+    auto target = sovranx::make_llama_backend(tp);
+    auto draft = sovranx::make_llama_backend(sp);
     SpeculativeDecoder::Config cfg;
     cfg.draft_tokens = 8;
     SpeculativeDecoder spec(*target, draft.get(), cfg);
@@ -733,9 +733,9 @@ TEST_CASE("[integration] speculative is faster with a real draft/target pair",
     // is 30%+; a small local pair (1.5B/0.5B: only ~3x cheaper) sits at or
     // below break-even, so the hard assertion is opt-in for the deployment
     // hardware.
-    if (std::getenv("SOVRANO_PERF_STRICT") != nullptr)
+    if (std::getenv("SOVRANX_PERF_STRICT") != nullptr)
         CHECK(speedup > 1.3);
     else
-        SUCCEED("speedup measured: set SOVRANO_PERF_STRICT=1 to enforce");
+        SUCCEED("speedup measured: set SOVRANX_PERF_STRICT=1 to enforce");
 #endif
 }

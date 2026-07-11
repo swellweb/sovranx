@@ -1,4 +1,4 @@
-#include "sovrano/utils/logger.hpp"
+#include "sovranx/utils/logger.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -8,7 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace sovrano {
+namespace sovranx {
 
 namespace {
 
@@ -64,4 +64,4 @@ LogLevel Logger::level_from_string(const std::string& name) {
     throw std::invalid_argument("unknown log level: " + name);
 }
 
-}  // namespace sovrano
+}  // namespace sovranx

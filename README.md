@@ -1,8 +1,8 @@
-# Sovrano
+# SovranX
 
 **A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
 
-Sovrano is not the first inference server. It's the first one that treats cheap CPU
+SovranX is not the first inference server. It's the first one that treats cheap CPU
 hardware as a first-class citizen instead of a fallback. Its thesis is simple:
 
 > **On a CPU, never compute the same thing twice.**
@@ -14,12 +14,12 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
   generation feeds an on-disk n-gram archive; future requests draft from it
   at zero cost. Domain workloads repeat themselves — let them pay off.
 - 🎭 **Il Suggeritore: grammar as a draft source** — constrained decoding uses
-  structure to *forbid* tokens; Sovrano inverts it and uses structure to
+  structure to *forbid* tokens; SovranX inverts it and uses structure to
   *propose* them. List numbering, bullets and format tokens are speculated
   for free on content nobody has ever generated before.
 - 🔮 **Self-regulating speculative decoding** — a small draft model *or* zero-cost
   n-gram lookup proposes tokens; the target verifies them in one batched pass.
-  Sovrano *measures* whether speculation pays on your hardware and switches it
+  SovranX *measures* whether speculation pays on your hardware and switches it
   off by itself when it doesn't.
 - 🏛️ **The Conclave: consensus as a quality knob** — `--best-of N` generates N
   candidate answers to the same prompt in one interleaved batch (one prefill,
@@ -33,7 +33,7 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
   (the cost that dominates memory-bound CPU decoding).
 - 🌐 **OpenAI-compatible REST API** — `/v1/completions`, `/v1/chat/completions`,
   SSE streaming, sessions, bearer auth, metrics. Point any OpenAI client at it.
-- ⚡ **Zero-config CLI** — `sovrano run qwen2.5-1.5b` downloads the model once,
+- ⚡ **Zero-config CLI** — `sovranx run qwen2.5-1.5b` downloads the model once,
   autoconfigures threads/KV/cache for the host and drops into a chat (or
   `--serve`). No config file until you want one.
 - 🧪 **210 isolated test cases** — every layer is mockable and tested without a
@@ -63,7 +63,7 @@ including the negative results that shaped the design.
 
 Two negative results that matter. On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
-Sovrano detects this and disables it at runtime. And the Conclave does **not**
+SovranX detects this and disables it at runtime. And the Conclave does **not**
 close the gap to a model twice the size on hard reasoning: majority voting
 corrects random slips, not systematic misunderstanding — we measured a 1.5B ×5
 land between the 1.5B and a 3B, never above the 3B. Benchmarks that only show
@@ -102,15 +102,15 @@ afford, paid in idle interleaved compute rather than a bigger model's RAM.
 ## Quick start
 
 ```bash
-sovrano list                                  # model catalog + what's on disk
-sovrano run qwen2.5-1.5b                      # download once, auto-config, chat
-sovrano run qwen2.5-1.5b "Explain mmap"       # one-shot answer
-sovrano run qwen2.5-1.5b --serve              # OpenAI-compatible API on :8080
-sovrano run qwen2.5-1.5b "12*13-50?" --best-of 5   # the Conclave
+sovranx list                                  # model catalog + what's on disk
+sovranx run qwen2.5-1.5b                      # download once, auto-config, chat
+sovranx run qwen2.5-1.5b "Explain mmap"       # one-shot answer
+sovranx run qwen2.5-1.5b --serve              # OpenAI-compatible API on :8080
+sovranx run qwen2.5-1.5b "12*13-50?" --best-of 5   # the Conclave
 ```
 
 `run` resolves a catalog name (or any local GGUF path), downloads to
-`~/.sovrano/models` on first use and picks threads, KV quantization and cache
+`~/.sovranx/models` on first use and picks threads, KV quantization and cache
 directory for the host. A config file is only needed when you want control.
 
 ## Install
@@ -118,28 +118,28 @@ directory for the host. A config file is only needed when you want control.
 **Homebrew** (macOS / Linux):
 
 ```bash
-brew tap swellweb/sovrano
-brew install sovrano
+brew tap swellweb/sovranx
+brew install sovranx
 ```
 
 **Prebuilt binaries** — Linux x64/arm64 and macOS arm64 on the
-[releases page](https://github.com/swellweb/sovrano/releases)
+[releases page](https://github.com/swellweb/sovranx/releases)
 (runtime dependency: libzstd).
 
-**npm** (`npx sovrano`): planned — binaries are already built per platform.
+**npm** (`npx sovranx`): planned — binaries are already built per platform.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/swellweb/sovrano
-cd sovrano
+git clone https://github.com/swellweb/sovranx
+cd sovranx
 git submodule update --init --depth 1 third_party/llama.cpp
 ./build.sh                       # Release build + 210 test cases
 
 ./scripts/download_models.sh     # TinyLlama (test model, ~670 MB)
 
-./build/src/sovrano --config config/sovrano.conf --prompt "Hello" --max-tokens 32
-./build/src/sovrano --config config/sovrano.conf --serve   # OpenAI-compatible API
+./build/src/sovranx --config config/sovranx.conf --prompt "Hello" --max-tokens 32
+./build/src/sovranx --config config/sovranx.conf --serve   # OpenAI-compatible API
 ```
 
 Dependencies: CMake ≥ 3.16, a C++17 compiler, and for the server Boost (headers),
@@ -168,7 +168,7 @@ enabled = true
 mode = lookup              # model (needs draft_model_path) | lookup (no 2nd model)
 
 [cache]
-directory = /opt/sovrano/cache
+directory = /opt/sovranx/cache
 max_size_mb = 4096         # LRU byte budget on disk
 
 [server]
@@ -189,45 +189,45 @@ parallel = 1               # >1 = interleaved multi-user serving
 
 ## A note on energy
 
-Sovrano's footprint is watt-scale, not kilowatt-scale: it targets machines that
+SovranX's footprint is watt-scale, not kilowatt-scale: it targets machines that
 already exist and are already powered on — no new silicon is racked to serve your
 model. We don't claim better joules-per-token than a saturated datacenter GPU —
 we claim you don't need one.
 
 ## Status & scope
 
-Sovrano is young and deliberately **opinionated and focused**: CPU-only serving,
+SovranX is young and deliberately **opinionated and focused**: CPU-only serving,
 one model per process, correctness pinned by tests at every layer. Not goals:
 GPU offload, training, model management UX. The llama.cpp submodule is pinned to
 a known-good commit and bumped deliberately.
 
 Documentation in Italian: [docs/README.it.md](docs/README.it.md).
 
-## Why Sovrano and not Ollama?
+## Why SovranX and not Ollama?
 
-The laptop story is the same one command: `sovrano run qwen2.5-1.5b` downloads,
+The laptop story is the same one command: `sovranx run qwen2.5-1.5b` downloads,
 autoconfigures and chats — nothing to learn. From there the two projects
-diverge: Ollama optimizes for running *many* models casually; Sovrano optimizes
+diverge: Ollama optimizes for running *many* models casually; SovranX optimizes
 for serving *one* workload seriously on hardware that costs nothing. The
 difference is one sentence:
 
-> Ollama runs models. Sovrano remembers having run them.
+> Ollama runs models. SovranX remembers having run them.
 
 General-purpose servers treat every request as brand new: compute, discard,
 repeat. On a GPU that's fine — compute is cheap. On a cheap CPU, compute is
 the most expensive thing you have, and throwing it away is the cardinal sin.
-Everything in Sovrano attacks that: the disk prefix cache, the generation
+Everything in SovranX attacks that: the disk prefix cache, the generation
 archive, the grammar prompter, self-regulating speculation, interleaved
 multi-user batches, the Conclave. None of it exists in Ollama.
 
-The practical consequence: **a Sovrano server gets faster the longer it runs.**
+The practical consequence: **a SovranX server gets faster the longer it runs.**
 The hundredth request costs a fraction of the first — the system prompt was
 paid once, similar answers draft themselves from the archive, structure is
 speculated for free. No other server has that property.
 
 ## Acknowledgments
 
-Sovrano stands on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp)
+SovranX stands on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp)
 (all tensor kernels; MIT). The disk-first cache thesis was inspired by
 antirez's DwarfStar4 line of thinking; the speculative pipeline by DeepSeek's
 DSpark work and the Leviathan/Chen speculative sampling theorem; archive

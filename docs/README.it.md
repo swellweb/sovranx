@@ -1,4 +1,4 @@
-# Sovrano
+# SovranX
 
 Motore di inferenza CPU-only per LLM in formato GGUF (target: modelli 30B),
 progettato per VPS Contabo (18 vCPU, 96 GB RAM, 350 GB NVMe).
@@ -37,7 +37,7 @@ server (equivalente a `--no-server`).
 ## Setup iniziale
 
 ```bash
-git clone <repo-url> && cd Sovrano
+git clone <repo-url> && cd SovranX
 git submodule update --init --depth 1 third_party/llama.cpp
 ```
 
@@ -75,10 +75,10 @@ ctest --test-dir build --output-on-failure
 
 ```bash
 # Generazione one-shot da CLI
-./build/src/sovrano --config config/sovrano.conf --prompt "Ciao" --max-tokens 64
+./build/src/sovranx --config config/sovranx.conf --prompt "Ciao" --max-tokens 64
 
 # Server HTTP (API REST compatibile OpenAI)
-./build/src/sovrano --config config/sovrano.conf --serve
+./build/src/sovranx --config config/sovranx.conf --serve
 ```
 
 ### API
@@ -100,18 +100,18 @@ curl http://localhost:8080/v1/completions \
   -d '{"prompt": "La capitale d'\''Italia è", "max_tokens": 16}'
 ```
 
-Configurazione: vedi [config/sovrano.conf](config/sovrano.conf) (formato INI,
+Configurazione: vedi [config/sovranx.conf](config/sovranx.conf) (formato INI,
 chiavi lette come `sezione.chiave`).
 
 ## Struttura
 
 ```
-Sovrano/
+SovranX/
 ├── CMakeLists.txt          # build principale
 ├── build.sh                # script di build
 ├── cmake/                  # moduli CMake (flag compilatore, SIMD)
-├── config/sovrano.conf     # configurazione di esempio
-├── include/sovrano/        # header pubblici
+├── config/sovranx.conf     # configurazione di esempio
+├── include/sovranx/        # header pubblici
 │   └── utils/              # Config, Logger
 ├── src/
 │   ├── main.cpp            # entry point

@@ -1,11 +1,11 @@
-#include "sovrano/cache/disk_cache_store.hpp"
+#include "sovranx/cache/disk_cache_store.hpp"
 
 #include <algorithm>
 #include <fstream>
 
-#include "sovrano/cache/cache_serializer.hpp"
+#include "sovranx/cache/cache_serializer.hpp"
 
-namespace sovrano::cache {
+namespace sovranx::cache {
 
 namespace fs = std::filesystem;
 
@@ -149,4 +149,4 @@ void DiskCacheStore::evict_until_fits(std::uint64_t incoming) {
     }
 }
 
-}  // namespace sovrano::cache
+}  // namespace sovranx::cache

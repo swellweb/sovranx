@@ -8,13 +8,13 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovrano/cache/prefix_cache.hpp"
+#include "sovranx/cache/prefix_cache.hpp"
 
 namespace fs = std::filesystem;
-using sovrano::TokenId;
-using sovrano::test::MockBackend;
-using sovrano::cache::CacheManager;
-using sovrano::cache::PrefixCache;
+using sovranx::TokenId;
+using sovranx::test::MockBackend;
+using sovranx::cache::CacheManager;
+using sovranx::cache::PrefixCache;
 
 namespace {
 
@@ -22,7 +22,7 @@ struct TempDir {
     fs::path path;
     TempDir() {
         path = fs::temp_directory_path() /
-               ("sovrano-prefix-test-" + std::to_string(counter++));
+               ("sovranx-prefix-test-" + std::to_string(counter++));
         fs::remove_all(path);
         fs::create_directories(path);
     }

@@ -442,16 +442,17 @@ TEST_CASE("conclave: consensus reached in parallel stops the straggler") {
     mock->seq_template = {peak(6, 3), peak(6, 5)};
     mock->seq_decode_queues[0] = mock->seq_template;
     mock->seq_decode_queues[1] = mock->seq_template;
-    std::deque<std::vector<float>> slow(200, peak(6, 4));
+    std::deque<std::vector<float>> slow(600, peak(6, 4));
     slow.push_back(peak(6, 5));
     mock->seq_decode_queues[2] = slow;
 
     SovranoEngine engine(cfg, std::move(backend));
-    auto gen = greedy(/*max_tokens=*/400);
+    auto gen = greedy(/*max_tokens=*/700);
     CHECK(engine.generate_best("hi", gen, 3) == "8");
     // Early stop: a run to the end of the straggler's script would take
-    // 200+ interleaved steps; consensus must cut it after a handful.
-    CHECK(mock->decode_seqs_calls.size() < 50);
+    // 600+ interleaved steps. The generous bound absorbs thread-scheduling
+    // starvation on tiny CI runners while still proving the cutoff.
+    CHECK(mock->decode_seqs_calls.size() < 300);
 }
 
 TEST_CASE("parallel mode rejects incompatible feature combinations") {

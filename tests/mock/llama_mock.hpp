@@ -61,6 +61,10 @@ public:
         std::uint32_t n_tokens;
     };
     std::vector<CopySeqCall> copy_seq_calls;
+    std::vector<std::string> format_chat_calls;
+    // When true the mock emulates a template-less model: format_chat
+    // passes the message through untouched.
+    bool chat_template_empty = false;
     // Per-sequence scripted logits for decode_seqs (falls back to
     // decode_result when a seq's queue is empty). When a seq slot is
     // reused by a new request (clear_seq), its queue is re-seeded from
@@ -157,6 +161,13 @@ public:
         std::lock_guard<std::mutex> lock(mock_mutex_);
         clear_seq_calls.push_back(seq_id);
         if (!seq_template.empty()) seq_decode_queues[seq_id] = seq_template;
+    }
+
+    std::string format_chat(const std::string& user_message) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
+        format_chat_calls.push_back(user_message);
+        if (chat_template_empty) return user_message;
+        return "<U>" + user_message + "</U><A>";
     }
 
     void copy_seq(std::int32_t src, std::int32_t dst,

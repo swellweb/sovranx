@@ -66,6 +66,12 @@ public:
     virtual std::vector<std::vector<float>> decode_seqs(
         const std::vector<SeqSlice>& slices) = 0;
 
+    // Formats a single user message with the model's own chat template
+    // (GGUF metadata tokenizer.chat_template), assistant turn opened.
+    // Returns the message unchanged when the model ships no template —
+    // raw completion is then the correct behavior.
+    virtual std::string format_chat(const std::string& user_message) = 0;
+
     // Drops one sequence's KV cache entirely (request finished).
     virtual void clear_seq(std::int32_t seq_id) = 0;
 

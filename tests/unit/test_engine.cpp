@@ -184,6 +184,20 @@ TEST_CASE("generate rejects a prompt that tokenizes to nothing") {
     CHECK_THROWS_AS(engine.generate("", greedy()), EngineError);
 }
 
+TEST_CASE("format_chat delegates to the model's own template") {
+    auto [engine, mock] = make_engine();
+    CHECK(engine.format_chat("hello") == "<U>hello</U><A>");
+    REQUIRE(mock->format_chat_calls.size() == 1);
+    CHECK(mock->format_chat_calls[0] == "hello");
+}
+
+TEST_CASE("format_chat passes through when the model has no template") {
+    auto [engine, mock] = make_engine();
+    mock->chat_template_empty = true;
+    // Template-less model: raw completion is the correct behavior.
+    CHECK(engine.format_chat("hello") == "hello");
+}
+
 // ---------------------------------------------------------------------------
 // generate_stream
 // ---------------------------------------------------------------------------

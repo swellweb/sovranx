@@ -124,6 +124,10 @@ public:
     void load_session(const std::string& session_id);
     void delete_session(const std::string& session_id);
 
+    // Wraps a user message in the model's own chat template (from the
+    // GGUF metadata); returns it unchanged for template-less models.
+    std::string format_chat(const std::string& user_message) const;
+
     int context_size() const;
     int vocab_size() const;
     // Token count of `text` under the model's tokenizer (for API usage

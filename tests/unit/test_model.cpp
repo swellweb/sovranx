@@ -365,6 +365,32 @@ TEST_CASE("[integration] cloned prompt KV yields the prefill's argmax",
 #endif
 }
 
+TEST_CASE("[integration] format_chat applies the GGUF's own chat template",
+          "[integration]") {
+#ifndef REAME_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    ModelParams p;
+    p.path = path;
+    p.context_length = 512;
+    p.threads = 4;
+    auto backend = reame::make_llama_backend(p);
+
+    // TinyLlama-Chat ships a Zephyr-style template in its GGUF metadata:
+    // the formatted prompt must wrap the message in user/assistant turns
+    // rather than echo it bare.
+    const auto formatted = backend->format_chat("What is water?");
+    CHECK(formatted.find("What is water?") != std::string::npos);
+    CHECK(formatted.size() > std::string("What is water?").size());
+    CHECK(formatted.find("assistant") != std::string::npos);
+#endif
+}
+
 TEST_CASE("[integration] tokenize parses special tokens as control tokens",
           "[integration]") {
 #ifndef REAME_HAS_LLAMA

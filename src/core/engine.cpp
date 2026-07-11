@@ -423,6 +423,10 @@ void ReameEngine::delete_session(const std::string& session_id) {
         throw EngineError("unknown session: " + session_id);
 }
 
+std::string ReameEngine::format_chat(const std::string& user_message) const {
+    return pimpl_->backend->format_chat(user_message);
+}
+
 int ReameEngine::context_size() const {
     return static_cast<int>(pimpl_->backend->context_length());
 }

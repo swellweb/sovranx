@@ -211,6 +211,28 @@ public:
         return out;
     }
 
+    std::string format_chat(const std::string& user_message) override {
+        // Template from the GGUF metadata; template-less models get raw
+        // completion (the message unchanged).
+        const char* tmpl = llama_model_chat_template(model_, nullptr);
+        if (tmpl == nullptr) return user_message;
+
+        llama_chat_message msg{"user", user_message.c_str()};
+        std::vector<char> buf(user_message.size() + 512);
+        std::int32_t n = llama_chat_apply_template(
+            tmpl, &msg, 1, /*add_assistant=*/true, buf.data(),
+            static_cast<std::int32_t>(buf.size()));
+        if (n < 0) return user_message;  // unsupported template: raw
+        if (static_cast<std::size_t>(n) > buf.size()) {
+            buf.resize(static_cast<std::size_t>(n));
+            n = llama_chat_apply_template(
+                tmpl, &msg, 1, true, buf.data(),
+                static_cast<std::int32_t>(buf.size()));
+            if (n < 0) return user_message;
+        }
+        return std::string(buf.data(), static_cast<std::size_t>(n));
+    }
+
     void copy_seq(std::int32_t src, std::int32_t dst,
                   std::uint32_t n_tokens) override {
         llama_memory_seq_cp(llama_get_memory(ctx_), src, dst, 0,

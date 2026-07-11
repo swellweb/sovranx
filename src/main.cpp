@@ -176,15 +176,18 @@ int run_zeroconfig(int argc, char** argv) {
         };
 
         if (!prompt.empty()) {
+            // The model's own chat template (from the GGUF); raw
+            // completion for template-less models.
+            const auto chat = engine->format_chat(prompt);
             if (best_of > 1) {
                 int votes = 0;
-                std::cout << engine->generate_best(prompt, gen, best_of,
+                std::cout << engine->generate_best(chat, gen, best_of,
                                                    &votes)
                           << "\n";
                 std::cerr << "CONCLAVE consensus=" << votes << "/" << best_of
                           << "\n";
             } else {
-                engine->generate_stream(prompt, stream, gen);
+                engine->generate_stream(chat, stream, gen);
                 std::cout << "\n";
             }
             return EXIT_SUCCESS;
@@ -198,7 +201,7 @@ int run_zeroconfig(int argc, char** argv) {
             std::cout << "\n> " << std::flush;
             if (!std::getline(std::cin, line)) break;
             if (line.empty()) continue;
-            engine->generate_stream(line, stream, gen);
+            engine->generate_stream(engine->format_chat(line), stream, gen);
             std::cout << "\n";
         }
         return EXIT_SUCCESS;

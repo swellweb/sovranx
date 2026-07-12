@@ -49,6 +49,9 @@ public:
     // Extra end-of-generation tokens beyond eos_token_value (ChatML models
     // mark <|im_end|> as EOG alongside the vocab eos).
     std::set<TokenId> eog_tokens;
+    // False emulates a recurrent/hybrid model (Qwen3.5, Mamba): the state
+    // cannot be rolled back, so truncate_to would fail at runtime.
+    bool supports_rollback_value = true;
 
     // Recorded calls.
     std::vector<std::pair<std::string, bool>> tokenize_calls;
@@ -226,6 +229,9 @@ public:
     TokenId eos_token() const override { return eos_token_value; }
     bool is_eog(TokenId token) const override {
         return token == eos_token_value || eog_tokens.count(token) > 0;
+    }
+    bool supports_rollback() const override {
+        return supports_rollback_value;
     }
 
 private:

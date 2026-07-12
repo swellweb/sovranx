@@ -146,6 +146,11 @@ int run_zeroconfig(int argc, char** argv) {
                  " threads)...");
         auto engine =
             std::make_shared<reame::core::ReameEngine>(cfg);
+        if (cfg.use_speculative &&
+            (cfg.use_prompt_lookup || !cfg.draft_model_path.empty()) &&
+            engine->speculative_metrics() == nullptr)
+            log.info("speculation off: recurrent/hybrid architecture "
+                     "cannot roll back rejected drafts");
         log.info("ready.");
 
         if (serve) {
@@ -354,6 +359,11 @@ int main(int argc, char** argv) {
                           ? std::string("prompt-lookup n-grams, no draft model")
                           : "draft " + engine_cfg.draft_model_path) +
                      ")");
+        else if (engine_cfg.use_speculative &&
+                 (engine_cfg.use_prompt_lookup ||
+                  !engine_cfg.draft_model_path.empty()))
+            log.info("speculative decoding: off (recurrent/hybrid "
+                     "architecture cannot roll back rejected drafts)");
 
         if (serve) {
 #ifdef REAME_WITH_SERVER

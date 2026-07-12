@@ -189,7 +189,10 @@ ReameEngine::ReameEngine(const Config& config,
         pimpl_->prefix_cache = std::make_unique<cache::PrefixCache>(
             *pimpl_->cache, pimpl_->model_tag, config.cache_block_tokens);
     }
-    if (config.use_speculative &&
+    // Speculative rejection rolls the sequence back past rejected draft
+    // tokens; recurrent/hybrid models (Qwen3.5, Mamba) cannot do that, so
+    // for them speculation silently downgrades to classic decoding.
+    if (config.use_speculative && pimpl_->backend->supports_rollback() &&
         (draft_backend != nullptr || config.use_prompt_lookup)) {
         pimpl_->draft_backend = std::move(draft_backend);
         speculative::SpeculativeDecoder::Config dc;

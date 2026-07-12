@@ -329,6 +329,11 @@ public:
         return llama_vocab_is_eog(vocab_, token);
     }
 
+    bool supports_rollback() const override {
+        return !llama_model_is_recurrent(model_) &&
+               !llama_model_is_hybrid(model_);
+    }
+
 private:
     // Explicit positions and logits flags: speculative decoding truncates
     // the sequence, which llama's automatic position tracking does not

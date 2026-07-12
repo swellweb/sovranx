@@ -116,6 +116,12 @@ public:
     // eos_token()`: chat models mark their end-of-turn control token
     // (e.g. ChatML's <|im_end|>) as EOG without it being the vocab eos.
     virtual bool is_eog(TokenId token) const = 0;
+
+    // False for recurrent/hybrid models (Qwen3.5's delta-net layers,
+    // Mamba, Jamba): their state cannot drop arbitrary tail positions, so
+    // truncate_to() fails at runtime. Speculative rejection depends on
+    // rollback and must be disabled for these models.
+    virtual bool supports_rollback() const = 0;
 };
 
 // Factory for the real llama.cpp backend. Throws ModelError if the model

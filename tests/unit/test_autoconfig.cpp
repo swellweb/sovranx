@@ -54,6 +54,19 @@ TEST_CASE("resolve_model returns nothing for an ambiguous prefix") {
     CHECK_FALSE(resolve_model("qwen").has_value());
 }
 
+TEST_CASE("catalog carries the judgment-capable pick (Qwen3.5-9B)") {
+    // Measured on a real webpage audit (M3 Pro): correct alt-text
+    // assessment, spotted an empty H2, no invented defects — where 1.5B
+    // and OLMoE fabricated findings and a 30B-A3B miscounted. 9B is the
+    // smallest model we measured doing judgment tasks right.
+    const auto m = resolve_model("qwen3.5-9b");
+    REQUIRE(m.has_value());
+    CHECK(m->filename == "qwen3.5-9b-q4_k_m.gguf");
+    CHECK(m->url.find("Qwen3.5-9B-GGUF") != std::string::npos);
+    CHECK(m->default_ctx >= 8192);
+    CHECK(m->note.find("9B") != std::string::npos);
+}
+
 TEST_CASE("auto_threads leaves headroom on big boxes, uses all on small ones") {
     CHECK(auto_threads(0) == 1);   // unknown -> safe minimum
     CHECK(auto_threads(1) == 1);

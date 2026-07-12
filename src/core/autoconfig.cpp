@@ -45,6 +45,12 @@ const std::vector<ModelSpec>& model_catalog() {
          "olmoe-1b-7b-instruct-q4_k_m.gguf", 4096,
          "7B MoE, 1B active · ~4.3 GB · 7B-class extraction at ~5x the "
          "speed of a dense 7B"},
+        {"qwen3.5-9b",
+         "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/"
+         "main/Qwen3.5-9B-Q4_K_M.gguf",
+         "qwen3.5-9b-q4_k_m.gguf", 8192,
+         "9B · ~5.3 GB · the judgment pick: audits and reviews measured "
+         "right where smaller models invent findings"},
     };
     return catalog;
 }

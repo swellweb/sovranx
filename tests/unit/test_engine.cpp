@@ -669,6 +669,26 @@ TEST_CASE("without a cache dir the classic prefill path is unchanged") {
     REQUIRE(mock->decode_calls.size() == 1);  // single full-prompt prefill
 }
 
+TEST_CASE("speculation downgrades to classic decoding when the backend "
+          "cannot roll back") {
+    // Recurrent/hybrid models (Qwen3.5's delta-net layers, Mamba, Jamba)
+    // cannot drop arbitrary tail positions, which speculative rejection
+    // requires: truncate_to() fails at runtime. The engine must fall back
+    // to classic decoding instead of dying mid-generation.
+    auto cfg = valid_config();
+    cfg.use_speculative = true;
+    cfg.use_prompt_lookup = true;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_foobar(mock);
+    mock->supports_rollback_value = false;
+
+    ReameEngine engine(cfg, std::move(backend));
+    CHECK(engine.speculative_metrics() == nullptr);  // decoder not built
+    CHECK(engine.generate("hi", greedy()) == "foobar");  // classic path OK
+}
+
 TEST_CASE("generation stops at any end-of-generation token, not only eos") {
     auto [engine, mock] = make_engine();
     mock->vocab_size_value = 5;

@@ -66,6 +66,27 @@ ModelParams to_model_params(const ReameEngine::Config& c) {
 
 }  // namespace
 
+bool wants_draft_backend(const ReameEngine::Config& config) {
+    return config.use_speculative && !config.use_prompt_lookup &&
+           !config.draft_model_path.empty();
+}
+
+std::string missing_model_file_error(const ReameEngine::Config& config) {
+    if (!std::filesystem::exists(config.model_path))
+        return "model file not found: '" + config.model_path +
+               "' — check model.path in your config. Relative paths resolve "
+               "from the working directory you run reame from, not from the "
+               "config file's location.";
+    if (wants_draft_backend(config) &&
+        !std::filesystem::exists(config.draft_model_path))
+        return "draft model file not found: '" + config.draft_model_path +
+               "' — [speculative] mode = model needs a second, smaller GGUF "
+               "at speculative.draft_model_path. Either download one, or set "
+               "mode = lookup (drafts from n-grams, no second model), or "
+               "enabled = false.";
+    return "";
+}
+
 struct ReameEngine::Impl {
     std::unique_ptr<LlamaBackend> backend;
     std::unique_ptr<LlamaBackend> draft_backend;
@@ -128,7 +149,7 @@ ReameEngine::ReameEngine(const Config& config)
               return make_llama_backend(to_model_params(config));
           }(),
           [&config]() -> std::unique_ptr<LlamaBackend> {
-              if (config.draft_model_path.empty() || !config.use_speculative)
+              if (!wants_draft_backend(config))
                   return nullptr;
               auto params = to_model_params(config);
               params.path = config.draft_model_path;

@@ -295,13 +295,6 @@ int main(int argc, char** argv) {
 
         reame::core::ReameEngine::Config engine_cfg;
         engine_cfg.model_path = cfg.get_string("model.path");
-        if (!std::filesystem::exists(engine_cfg.model_path)) {
-            log.error("model file not found: '" + engine_cfg.model_path +
-                      "' — check model.path in your config. Relative paths "
-                      "resolve from the directory you run reame from, not "
-                      "from the config file's location.");
-            return EXIT_FAILURE;
-        }
         engine_cfg.n_ctx =
             static_cast<int>(cfg.get_int("model.context_length", 4096));
         engine_cfg.n_threads = static_cast<int>(cfg.get_int("model.threads", 4));
@@ -340,6 +333,15 @@ int main(int argc, char** argv) {
             engine_cfg.cache_dir.clear();
         }
 
+        // Fail fast on missing model files (main AND draft) with a clear
+        // message, before llama.cpp can surface a bare strerror.
+        if (const auto missing =
+                reame::core::missing_model_file_error(engine_cfg);
+            !missing.empty()) {
+            log.error(missing);
+            return EXIT_FAILURE;
+        }
+
         log.info("loading model...");
         auto engine =
             std::make_shared<reame::core::ReameEngine>(engine_cfg);
@@ -347,8 +349,11 @@ int main(int argc, char** argv) {
                  std::to_string(engine->vocab_size()) + ", ctx " +
                  std::to_string(engine->context_size()) + ")");
         if (engine->speculative_metrics() != nullptr)
-            log.info("speculative decoding: on (draft " +
-                     engine_cfg.draft_model_path + ")");
+            log.info("speculative decoding: on (" +
+                     (engine_cfg.use_prompt_lookup
+                          ? std::string("prompt-lookup n-grams, no draft model")
+                          : "draft " + engine_cfg.draft_model_path) +
+                     ")");
 
         if (serve) {
 #ifdef REAME_WITH_SERVER

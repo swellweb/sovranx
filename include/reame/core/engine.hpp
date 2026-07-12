@@ -149,4 +149,17 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
+// True when the config calls for loading a second (draft) model: speculation
+// on, mode = model (not prompt-lookup) and a draft_model_path set. Lookup
+// mode drafts from n-grams and must never load the second model, even when
+// a stale draft_model_path is still present in the config.
+bool wants_draft_backend(const ReameEngine::Config& config);
+
+// Fail-fast filesystem check for every model file the config will load
+// (main model, plus the draft model when wants_draft_backend). Returns ""
+// when they all exist, otherwise a human-readable error naming the missing
+// file and how to fix it — so the CLI can fail before llama.cpp surfaces a
+// bare "No such file or directory".
+std::string missing_model_file_error(const ReameEngine::Config& config);
+
 }  // namespace reame::core

@@ -670,6 +670,94 @@ TEST_CASE("without a cache dir the classic prefill path is unchanged") {
 }
 
 // ---------------------------------------------------------------------------
+// Fail-fast model file checks (wants_draft_backend / missing_model_file_error)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Creates an empty file so std::filesystem::exists() is true.
+void touch(const std::filesystem::path& p) {
+    std::ofstream(p).flush();
+}
+
+}  // namespace
+
+TEST_CASE("wants_draft_backend requires speculation, model mode and a path") {
+    ReameEngine::Config c = valid_config();
+
+    // Default: no draft path -> no draft backend.
+    CHECK_FALSE(reame::core::wants_draft_backend(c));
+
+    // Speculation on, mode = model, path set -> draft backend wanted.
+    c.draft_model_path = "models/draft.gguf";
+    c.use_speculative = true;
+    c.use_prompt_lookup = false;
+    CHECK(reame::core::wants_draft_backend(c));
+
+    // mode = lookup drafts from n-grams: the second model must NOT load
+    // even when a (stale) draft_model_path is still set in the config.
+    c.use_prompt_lookup = true;
+    CHECK_FALSE(reame::core::wants_draft_backend(c));
+
+    // Speculation off ignores the draft path entirely.
+    c.use_prompt_lookup = false;
+    c.use_speculative = false;
+    CHECK_FALSE(reame::core::wants_draft_backend(c));
+}
+
+TEST_CASE("missing_model_file_error names the missing main model") {
+    CacheTempDir dir;
+    ReameEngine::Config c = valid_config();
+    c.model_path = (dir.path / "nope.gguf").string();
+
+    const auto err = reame::core::missing_model_file_error(c);
+    CHECK(err.find(c.model_path) != std::string::npos);
+    // The hint that bit the first HN user: relative paths resolve from the
+    // working directory, not from the config file's location.
+    CHECK(err.find("working directory") != std::string::npos);
+}
+
+TEST_CASE("missing_model_file_error is empty when no draft is wanted") {
+    CacheTempDir dir;
+    ReameEngine::Config c = valid_config();
+    c.model_path = (dir.path / "model.gguf").string();
+    touch(c.model_path);
+
+    SECTION("no draft path") {
+        CHECK(reame::core::missing_model_file_error(c).empty());
+    }
+    SECTION("stale draft path but mode = lookup") {
+        c.draft_model_path = (dir.path / "missing-draft.gguf").string();
+        c.use_prompt_lookup = true;
+        CHECK(reame::core::missing_model_file_error(c).empty());
+    }
+    SECTION("stale draft path but speculation disabled") {
+        c.draft_model_path = (dir.path / "missing-draft.gguf").string();
+        c.use_speculative = false;
+        CHECK(reame::core::missing_model_file_error(c).empty());
+    }
+}
+
+TEST_CASE("missing_model_file_error flags a wanted-but-missing draft model") {
+    CacheTempDir dir;
+    ReameEngine::Config c = valid_config();
+    c.model_path = (dir.path / "model.gguf").string();
+    touch(c.model_path);
+    c.draft_model_path = (dir.path / "draft.gguf").string();
+    c.use_speculative = true;
+    c.use_prompt_lookup = false;
+
+    const auto err = reame::core::missing_model_file_error(c);
+    CHECK(err.find(c.draft_model_path) != std::string::npos);
+    // Must point at the no-second-model way out.
+    CHECK(err.find("mode = lookup") != std::string::npos);
+
+    // Both files present -> no error.
+    touch(c.draft_model_path);
+    CHECK(reame::core::missing_model_file_error(c).empty());
+}
+
+// ---------------------------------------------------------------------------
 // Integration (real llama.cpp + TinyLlama). SKIPs when unavailable.
 // ---------------------------------------------------------------------------
 

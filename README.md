@@ -4,8 +4,8 @@
 
 **A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
 
-Reame is not the first inference server. It's the first one that treats cheap CPU
-hardware as a first-class citizen instead of a fallback. Its thesis is simple:
+Reame is an inference server built for cheap CPU hardware first — not as a
+fallback for missing GPUs. Its thesis is simple:
 
 > **On a CPU, never compute the same thing twice.**
 
@@ -20,10 +20,10 @@ Reame's memory makes request #100 cost a fraction of request #1.
 
 | Use case | Why it fits | Suggested model |
 |---|---|---|
-| Document extraction & classification (RAG, invoices, tickets, scraping) | answers live in the context; prompts share prefixes → the disk cache pays | Qwen2.5 1.5B–7B |
+| Document extraction & classification (RAG, invoices, tickets, scraping) | answers live in the context; prompts share prefixes → the disk cache pays | OLMoE 7B-A1B |
 | Batch pipelines (tag 10k products overnight, meta descriptions, email triage) | repetitive by nature → Palimpsest drafts them; €0 per token, no rate limits | Qwen2.5 1.5B–3B |
 | AI features inside a thin-margin SaaS | a €5 VPS instead of a metered API keeps unit economics alive | Qwen2.5 1.5B–7B |
-| Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | Qwen2.5 7B |
+| Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | OLMoE 7B-A1B |
 | Private code autocomplete (Continue.dev + OpenAI-compatible API) | line-level completion is a narrow task; code never leaves the laptop | Qwen2.5-Coder 1.5B |
 
 **What Reame is NOT for**: a
@@ -49,7 +49,7 @@ long-form writing at scale. If your task needs a 100B-class brain, buy one. Ream
   candidate answers to the same prompt in one interleaved batch (one prefill,
   cloned into the others via KV copy; every weight read shared) and elects the
   winner by majority on the final result. The moment an absolute majority
-  agrees, the stragglers are stopped. Honestly measured: it squeezes roughly
+  agrees, the stragglers are stopped. Measured: it squeezes roughly
   one extra correct answer per quiz out of *the model you already run* — it
   does not make a 1.5B out-reason a 3B (consensus fixes variance, not bias).
 - 👥 **Interleaved multi-user serving** — N concurrent generations advance together
@@ -60,7 +60,7 @@ long-form writing at scale. If your task needs a 100B-class brain, buy one. Ream
 - ⚡ **Zero-config CLI** — `reame run qwen2.5-1.5b` downloads the model once,
   autoconfigures threads/KV/cache for the host and drops into a chat (or
   `--serve`). No config file until you want one.
-- 🧪 **210 isolated test cases** — every layer is mockable and tested without a
+- 🧪 **220+ isolated test cases** — every layer is mockable and tested without a
   model; correctness of the multi-sequence, speculative and KV-clone paths is
   pinned against real models in integration tests.
 
@@ -161,7 +161,7 @@ brew install reame
 git clone https://github.com/swellweb/reame
 cd reame
 git submodule update --init --depth 1 third_party/llama.cpp
-./build.sh                       # Release build + 210 test cases
+./build.sh                       # Release build + full test suite
 
 ./scripts/download_models.sh     # TinyLlama (test model, ~670 MB)
 
@@ -214,13 +214,6 @@ parallel = 1               # >1 = interleaved multi-user serving
 | `GET /metrics` | request counters + speculative/cache metrics |
 | `GET /health` | liveness (auth-exempt) |
 
-## A note on energy
-
-Reame's footprint is watt-scale, not kilowatt-scale: it targets machines that
-already exist and are already powered on — no new silicon is racked to serve your
-model. We don't claim better joules-per-token than a saturated datacenter GPU —
-we claim you don't need one.
-
 ## Status & scope
 
 Reame is young and deliberately **opinionated and focused**: CPU-only serving,
@@ -242,7 +235,7 @@ difference is one sentence:
 
 General-purpose servers treat every request as brand new: compute, discard,
 repeat. On a GPU that's fine — compute is cheap. On a cheap CPU, compute is
-the most expensive thing you have, and throwing it away is the cardinal sin.
+the most expensive thing you have.
 Everything in Reame attacks that: the disk prefix cache, the generation
 archive, the grammar prompter, self-regulating speculation, interleaved
 multi-user batches, the Conclave. None of it exists in Ollama.
@@ -250,7 +243,7 @@ multi-user batches, the Conclave. None of it exists in Ollama.
 The practical consequence: **a Reame server gets faster the longer it runs.**
 The hundredth request costs a fraction of the first — the system prompt was
 paid once, similar answers draft themselves from the archive, structure is
-speculated for free. No other server has that property.
+speculated for free. That property is the whole design.
 
 ## Support
 

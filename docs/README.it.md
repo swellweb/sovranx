@@ -1,3 +1,5 @@
+> ⚠️ Questa traduzione può restare indietro: fa fede il [README inglese](../README.md).
+
 # Reame
 
 Motore di inferenza CPU-only per LLM in formato GGUF (target: modelli 30B),

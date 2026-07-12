@@ -34,6 +34,10 @@ set(REAME_HAS_LLAMA OFF)
 if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/llama.cpp/CMakeLists.txt")
     set(REAME_HAS_LLAMA ON)
     # CPU-only engine: no GPU backends, no extra tooling.
+    # Static llama/ggml: a shared build leaves @rpath references into the
+    # build tree, so a distributed binary cannot load outside the machine
+    # that compiled it (v0.1.4's prebuilt binaries shipped exactly so).
+    set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_TOOLS    OFF CACHE BOOL "" FORCE)

@@ -233,6 +233,42 @@ public:
         return std::string(buf.data(), static_cast<std::size_t>(n));
     }
 
+    std::string format_chat(
+        const std::vector<ChatMessage>& messages) override {
+        // Template-less models (and unsupported templates) fall back to
+        // plain role-prefixed turns — the best a raw completion model can
+        // do with a conversation.
+        const auto fallback = [&messages] {
+            std::string out;
+            for (const auto& m : messages)
+                out += m.role + ": " + m.content + "\n";
+            return out + "assistant:";
+        };
+        const char* tmpl = llama_model_chat_template(model_, nullptr);
+        if (tmpl == nullptr) return fallback();
+
+        std::vector<llama_chat_message> msgs;
+        std::size_t text_size = 0;
+        msgs.reserve(messages.size());
+        for (const auto& m : messages) {
+            msgs.push_back({m.role.c_str(), m.content.c_str()});
+            text_size += m.role.size() + m.content.size();
+        }
+        std::vector<char> buf(text_size + 1024);
+        std::int32_t n = llama_chat_apply_template(
+            tmpl, msgs.data(), msgs.size(), /*add_assistant=*/true,
+            buf.data(), static_cast<std::int32_t>(buf.size()));
+        if (n < 0) return fallback();
+        if (static_cast<std::size_t>(n) > buf.size()) {
+            buf.resize(static_cast<std::size_t>(n));
+            n = llama_chat_apply_template(
+                tmpl, msgs.data(), msgs.size(), true, buf.data(),
+                static_cast<std::int32_t>(buf.size()));
+            if (n < 0) return fallback();
+        }
+        return std::string(buf.data(), static_cast<std::size_t>(n));
+    }
+
     void copy_seq(std::int32_t src, std::int32_t dst,
                   std::uint32_t n_tokens) override {
         llama_memory_seq_cp(llama_get_memory(ctx_), src, dst, 0,
@@ -288,6 +324,10 @@ public:
     std::uint32_t context_length() const override { return llama_n_ctx(ctx_); }
 
     TokenId eos_token() const override { return llama_vocab_eos(vocab_); }
+
+    bool is_eog(TokenId token) const override {
+        return llama_vocab_is_eog(vocab_, token);
+    }
 
 private:
     // Explicit positions and logits flags: speculative decoding truncates

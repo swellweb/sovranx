@@ -18,6 +18,12 @@ struct SeqSlice {
     std::uint32_t pos_start = 0;  // position of tokens[0] within the seq
 };
 
+// One turn of an OpenAI-style conversation ("system"/"user"/"assistant").
+struct ChatMessage {
+    std::string role;
+    std::string content;
+};
+
 // Seam between LlamaModel and llama.cpp. The real implementation
 // (llama_backend_real.cpp) talks to the llama C API; tests inject a mock.
 // Implementations own the underlying model/context and release them on
@@ -72,6 +78,12 @@ public:
     // raw completion is then the correct behavior.
     virtual std::string format_chat(const std::string& user_message) = 0;
 
+    // Formats a whole conversation with the model's own chat template,
+    // assistant turn opened. Template-less models fall back to plain
+    // role-prefixed turns ("role: content\n...assistant:").
+    virtual std::string format_chat(
+        const std::vector<ChatMessage>& messages) = 0;
+
     // Drops one sequence's KV cache entirely (request finished).
     virtual void clear_seq(std::int32_t seq_id) = 0;
 
@@ -99,6 +111,11 @@ public:
     virtual std::int32_t vocab_size() const = 0;
     virtual std::uint32_t context_length() const = 0;
     virtual TokenId eos_token() const = 0;
+
+    // True when `token` ends generation. Broader than `token ==
+    // eos_token()`: chat models mark their end-of-turn control token
+    // (e.g. ChatML's <|im_end|>) as EOG without it being the vocab eos.
+    virtual bool is_eog(TokenId token) const = 0;
 };
 
 // Factory for the real llama.cpp backend. Throws ModelError if the model

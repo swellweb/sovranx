@@ -251,6 +251,29 @@ TEST_CASE("decoder tolerates small vocab padding differences (Qwen 7B vs 0.5B)")
     CHECK(decoder.speculative_active());
 }
 
+TEST_CASE("decoder stops at any end-of-generation token, not only eos") {
+    MockBackend target, draft;
+    setup(target);
+    setup(draft);
+    // Token 4 is a second end-of-turn marker (ChatML-style <|im_end|>).
+    const TokenId kImEnd = 4;
+    target.eog_tokens = {kImEnd};
+    draft.eog_tokens = {kImEnd};
+
+    SpeculativeDecoder::Config cfg;
+    cfg.draft_tokens = 2;
+    cfg.min_draft_tokens = 2;
+    cfg.max_draft_tokens = 2;
+
+    // Draft proposes {1, kImEnd}; target agrees on both. The accepted
+    // kImEnd must end generation: output is just {1}.
+    draft.decode_queue = {peak(kVocab, 1), peak(kVocab, kImEnd)};
+    target.decode_batch_queue = {{peak(kVocab, 1), peak(kVocab, kImEnd)}};
+
+    SpeculativeDecoder decoder(target, &draft, cfg);
+    CHECK(decoder.generate({0}, greedy()) == std::vector<TokenId>{1});
+}
+
 TEST_CASE("decoder falls back to plain when a token outside the draft vocab is emitted") {
     MockBackend target, draft;
     setup(target);

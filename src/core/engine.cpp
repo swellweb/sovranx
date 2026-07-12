@@ -362,7 +362,6 @@ void ReameEngine::generate_stream(
     }
 
     Sampler sampler(gen_config);
-    const TokenId eos = backend.eos_token();
 
     // Prefill; from here `tokens` mirrors the KV cache content.
     std::vector<float> logits;
@@ -380,7 +379,7 @@ void ReameEngine::generate_stream(
 
     for (int produced = 0; produced < gen_config.max_tokens; ++produced) {
         const TokenId next = sampler.sample(std::move(logits), tokens);
-        if (next == eos) break;
+        if (backend.is_eog(next)) break;
 
         const std::string piece = backend.token_piece(next);
         if (!callback(piece)) break;
@@ -446,6 +445,11 @@ void ReameEngine::delete_session(const std::string& session_id) {
 
 std::string ReameEngine::format_chat(const std::string& user_message) const {
     return pimpl_->backend->format_chat(user_message);
+}
+
+std::string ReameEngine::format_chat(
+    const std::vector<ChatMessage>& messages) const {
+    return pimpl_->backend->format_chat(messages);
 }
 
 int ReameEngine::context_size() const {

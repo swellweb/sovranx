@@ -53,6 +53,25 @@ struct Collector {
 
 }  // namespace
 
+TEST_CASE("a sequence stops at any end-of-generation token, not only eos") {
+    MockBackend backend;
+    setup(backend);
+    // Token 4 is a second end-of-turn marker (ChatML-style <|im_end|>):
+    // the sequence must stop there, before the scripted token 2.
+    backend.eog_tokens = {4};
+    backend.seq_decode_queues[0] = {peak(kVocab, 1), peak(kVocab, 4),
+                                    peak(kVocab, 2)};
+
+    Scheduler sched(backend, {/*n_parallel=*/1});
+    Collector a;
+    const auto ra = sched.submit({10}, greedy(), a.cb());
+    sched.run_until_idle();
+
+    CHECK(a.tokens == std::vector<TokenId>{1});
+    CHECK(sched.finished(ra));
+    CHECK(sched.error(ra) == nullptr);
+}
+
 TEST_CASE("two requests interleave in shared batches and both complete") {
     MockBackend backend;
     setup(backend);

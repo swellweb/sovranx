@@ -31,7 +31,6 @@ struct Request {
 struct Scheduler::Impl {
     LlamaBackend& backend;
     Config cfg;
-    TokenId eos;
     std::uint32_t n_ctx;
 
     mutable std::mutex mutex;
@@ -48,7 +47,7 @@ struct Scheduler::Impl {
     std::uint64_t next_id = 1;
 
     Impl(LlamaBackend& b, const Config& c)
-        : backend(b), cfg(c), eos(b.eos_token()), n_ctx(b.context_length()),
+        : backend(b), cfg(c), n_ctx(b.context_length()),
           slot_used(static_cast<std::size_t>(std::max(c.n_parallel, 1)),
                     false) {}
 
@@ -164,7 +163,7 @@ struct Scheduler::Impl {
             try {
                 const TokenId next =
                     r.sampler->sample(std::move(logits[i]), r.history);
-                if (next == eos) {
+                if (backend.is_eog(next)) {
                     finish(r, nullptr);
                     continue;
                 }

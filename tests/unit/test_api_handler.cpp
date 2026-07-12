@@ -193,7 +193,7 @@ TEST_CASE("completions streams SSE chunks ending with [DONE]") {
 // Chat completions
 // ---------------------------------------------------------------------------
 
-TEST_CASE("chat completions template the messages and return the reply") {
+TEST_CASE("chat completions apply the model's own chat template") {
     Fixture f;
     const json body{
         {"messages",
@@ -210,12 +210,39 @@ TEST_CASE("chat completions template the messages and return the reply") {
     CHECK(j["choices"][0]["message"]["role"] == "assistant");
     CHECK(j["choices"][0]["message"]["content"] == "foobar");
 
-    // The prompt fed to the engine contains the templated conversation.
+    // The messages went through the backend's chat template — NOT a
+    // hand-rolled "role: content" concatenation the model was never
+    // trained on (that's what kept EOS from ever being emitted).
+    REQUIRE(f.mock->format_chat_messages_calls.size() == 1);
+    const auto& msgs = f.mock->format_chat_messages_calls[0];
+    REQUIRE(msgs.size() == 2);
+    CHECK(msgs[0].role == "system");
+    CHECK(msgs[0].content == "be brief");
+    CHECK(msgs[1].role == "user");
+    CHECK(msgs[1].content == "hi there");
+
+    // And the templated string is what got tokenized.
     REQUIRE_FALSE(f.mock->tokenize_calls.empty());
-    const auto& prompt = f.mock->tokenize_calls[0].first;
-    CHECK(prompt.find("system: be brief") != std::string::npos);
-    CHECK(prompt.find("user: hi there") != std::string::npos);
-    CHECK(prompt.rfind("assistant:") == prompt.size() - 10);
+    CHECK(f.mock->tokenize_calls[0].first ==
+          "<M:system>be brief<M:user>hi there<A>");
+}
+
+TEST_CASE("template-less models fall back to plain role-prefixed turns") {
+    Fixture f;
+    f.mock->chat_template_empty = true;
+    const json body{
+        {"messages",
+         json::array({{{"role", "system"}, {"content", "be brief"}},
+                      {{"role", "user"}, {"content", "hi there"}}})},
+        {"temperature", 0.0}};
+
+    const auto resp =
+        f.handler->handle(request("POST", "/v1/chat/completions", body.dump()));
+
+    REQUIRE(resp.status == 200);
+    REQUIRE_FALSE(f.mock->tokenize_calls.empty());
+    CHECK(f.mock->tokenize_calls[0].first ==
+          "system: be brief\nuser: hi there\nassistant:");
 }
 
 TEST_CASE("chat completions require a non-empty messages array") {

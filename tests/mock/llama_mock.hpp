@@ -10,6 +10,7 @@
 #include <deque>
 #include <map>
 #include <mutex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -45,6 +46,9 @@ public:
     std::int32_t vocab_size_value = 32000;
     std::uint32_t context_length_value = 2048;
     TokenId eos_token_value = 2;
+    // Extra end-of-generation tokens beyond eos_token_value (ChatML models
+    // mark <|im_end|> as EOG alongside the vocab eos).
+    std::set<TokenId> eog_tokens;
 
     // Recorded calls.
     std::vector<std::pair<std::string, bool>> tokenize_calls;
@@ -62,8 +66,10 @@ public:
     };
     std::vector<CopySeqCall> copy_seq_calls;
     std::vector<std::string> format_chat_calls;
+    std::vector<std::vector<ChatMessage>> format_chat_messages_calls;
     // When true the mock emulates a template-less model: format_chat
-    // passes the message through untouched.
+    // passes the message through untouched (multi-message: plain
+    // role-prefixed fallback, mirroring the real backend).
     bool chat_template_empty = false;
     // Per-sequence scripted logits for decode_seqs (falls back to
     // decode_result when a seq's queue is empty). When a seq slot is
@@ -170,6 +176,21 @@ public:
         return "<U>" + user_message + "</U><A>";
     }
 
+    std::string format_chat(
+        const std::vector<ChatMessage>& messages) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
+        format_chat_messages_calls.push_back(messages);
+        std::string out;
+        if (chat_template_empty) {
+            // Mirrors the real backend's template-less fallback.
+            for (const auto& m : messages)
+                out += m.role + ": " + m.content + "\n";
+            return out + "assistant:";
+        }
+        for (const auto& m : messages) out += "<M:" + m.role + ">" + m.content;
+        return out + "<A>";
+    }
+
     void copy_seq(std::int32_t src, std::int32_t dst,
                   std::uint32_t n_tokens) override {
         std::lock_guard<std::mutex> lock(mock_mutex_);
@@ -203,6 +224,9 @@ public:
     std::int32_t vocab_size() const override { return vocab_size_value; }
     std::uint32_t context_length() const override { return context_length_value; }
     TokenId eos_token() const override { return eos_token_value; }
+    bool is_eog(TokenId token) const override {
+        return token == eos_token_value || eog_tokens.count(token) > 0;
+    }
 
 private:
     void maybe_fail() {

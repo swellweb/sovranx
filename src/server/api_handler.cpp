@@ -169,10 +169,12 @@ struct ApiHandler::Impl {
                                    "invalid_request_error", "invalid_messages"));
                 return;
             }
+            std::vector<ChatMessage> messages;
+            messages.reserve(body["messages"].size());
             for (const auto& m : body["messages"])
-                prompt += m.value("role", "user") + ": " +
-                          m.value("content", "") + "\n";
-            prompt += "assistant:";
+                messages.push_back(
+                    {m.value("role", "user"), m.value("content", "")});
+            prompt = engine.format_chat(messages);
         } else {
             if (!body.contains("prompt") || !body["prompt"].is_string()) {
                 respond(w, 400,

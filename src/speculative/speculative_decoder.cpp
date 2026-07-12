@@ -78,7 +78,6 @@ void SpeculativeDecoder::generate_stream(
                                 std::to_string(n_ctx));
 
     const auto wall_start = Clock::now();
-    const TokenId eos = target_.eos_token();
 
     core::Sampler sampler(gen_config);
     std::mt19937 accept_rng(
@@ -241,7 +240,7 @@ void SpeculativeDecoder::generate_stream(
             if (vr.has_correction) new_tokens.push_back(vr.corrected_token);
 
             for (const TokenId t : new_tokens) {
-                if (t == eos) {
+                if (target_.is_eog(t)) {
                     metrics_.total_time_s += seconds_since(wall_start);
                     return;
                 }
@@ -268,7 +267,7 @@ void SpeculativeDecoder::generate_stream(
             base += 1;
 
             const TokenId next = sampler.sample(std::move(logits), history);
-            if (next == eos) break;
+            if (target_.is_eog(next)) break;
             if (!callback(next)) break;
             history.push_back(next);
             ++emitted;

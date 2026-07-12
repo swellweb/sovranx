@@ -669,6 +669,21 @@ TEST_CASE("without a cache dir the classic prefill path is unchanged") {
     REQUIRE(mock->decode_calls.size() == 1);  // single full-prompt prefill
 }
 
+TEST_CASE("generation stops at any end-of-generation token, not only eos") {
+    auto [engine, mock] = make_engine();
+    mock->vocab_size_value = 5;
+    mock->eos_token_value = 4;
+    // A second end-of-turn token, as in ChatML models where <|im_end|>
+    // closes the assistant turn but <|endoftext|> is the vocab eos.
+    mock->eog_tokens = {3};
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{0, "hi"}};
+    mock->decode_queue = {peak(5, 0), peak(5, 3), peak(5, 0)};
+
+    // Emits 0 ("hi"), then 3 which is EOG: generation must stop there.
+    CHECK(engine.generate("chat", greedy()) == "hi");
+}
+
 // ---------------------------------------------------------------------------
 // Fail-fast model file checks (wants_draft_backend / missing_model_file_error)
 // ---------------------------------------------------------------------------

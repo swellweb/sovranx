@@ -128,6 +128,10 @@ public:
     // GGUF metadata); returns it unchanged for template-less models.
     std::string format_chat(const std::string& user_message) const;
 
+    // Formats a whole conversation with the model's own chat template;
+    // template-less models fall back to plain role-prefixed turns.
+    std::string format_chat(const std::vector<ChatMessage>& messages) const;
+
     int context_size() const;
     int vocab_size() const;
     // Token count of `text` under the model's tokenizer (for API usage

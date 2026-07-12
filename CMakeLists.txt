@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(reame
-    VERSION 0.1.3
+    VERSION 0.1.4
     DESCRIPTION "Reame - CPU inference engine for GGUF LLMs (speculative decoding + memory optimizations)"
     LANGUAGES CXX
 )

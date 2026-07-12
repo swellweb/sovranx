@@ -87,8 +87,10 @@ including the negative results that shaped the design.
 | Apple M3 Pro | Qwen2.5-1.5B ×5 candidates | Conclave: shared prefill + early consensus + fast nucleus | 8-question quiz wall **97s → ~50s** |
 | Apple M3 Pro | Qwen2.5-1.5B `--best-of 5` vs single | 3 arithmetic quizzes, strict grading | **+0.5 to +2 correct**, ~2.5× wall (not 5×) |
 | Oracle Cloud free tier | **OLMoE 7B-A1B (MoE)** vs dense 7B | same 8-needle long-context test | **100% accuracy both · 17.8 vs 3.3 tok/s (5.4×)** |
+| Oracle Cloud free tier (resized: 4 OCPU, 24 GB) | OLMoE 7B-A1B | 3 threads after the free-tier max resize | **26.7 tok/s** |
+| Oracle Cloud free tier (4 OCPU, 24 GB) | Qwen3-30B-A3B Q4_K_M | same 8-needle test | 8/8 — but **~335s/question vs ~35s** for OLMoE |
 
-Two negative results that matter. On heavily oversubscribed shared vCPUs a draft
+Three negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that also scored 100%: when the answer lives in the context, extra parameters buy nothing (MoE prefill touches nearly every expert, so the 3B-active discount vanishes on document reading). Use 30B-class models for hard reasoning in background batches, not for serving. On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
 Reame detects this and disables it at runtime. And the Conclave does **not**
 close the gap to a model twice the size on hard reasoning: majority voting

@@ -23,6 +23,7 @@ add_executable(reame_tests
     unit/test_arca_client.cpp
     unit/test_semantic_index.cpp
     unit/test_semantic_cache.cpp
+    unit/test_semantic_bench.cpp
     unit/test_speculative.cpp
     unit/test_prompt_lookup.cpp
     unit/test_form_draft.cpp

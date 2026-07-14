@@ -88,6 +88,26 @@ same model doing the naive thing.
 | Warm-ahead (POST /v1/warm) | OLMoE, 1116-token doc pre-digested, Oracle free tier | TTFT **20.6s → 3.4s (6.1×)** |
 | Warm-ahead | same, M3 Pro | TTFT **8.7s → 1.6s (5.3×)** |
 
+## L2 semantic cache — correctness across thresholds
+
+The crux of a semantic cache is not speed, it's *not serving the answer to a
+different question*. Measured with bge-small-en-v1.5 on a set of paraphrase
+pairs (should hit) and different-but-topical pairs (must not):
+
+| Cosine threshold | Recall (paraphrase hits) | False-hit (wrong answer served) |
+|---|---|---|
+| 0.60 | 100% | 83% |
+| 0.75 | 100% | 17% |
+| **0.80** | **67%** | **0%** |
+| 0.85 | 67% | 0% |
+| 0.95 | 0% | 0% |
+
+At **0.80** the cache catches two-thirds of paraphrases and never serves a
+wrong answer; below it, false-hits climb fast. So L2 is viable — with a strict
+threshold as the safe default, not a loose one. (If higher recall is needed
+without loosening, the model's RANK pooling supports a cross-encoder rerank of
+the top candidate — a stage 2 to add only if the numbers demand it.)
+
 ## Reame vs llama.cpp
 
 Reame is built on llama.cpp and calls its kernels directly, so raw decode

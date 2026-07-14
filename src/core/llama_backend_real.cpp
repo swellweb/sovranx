@@ -4,11 +4,15 @@
 
 #include <llama.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
+#include "reame/arca/embedder.hpp"
 #include "reame/core/llama_backend.hpp"
 #include "reame/core/model.hpp"
 
@@ -379,10 +383,115 @@ private:
     const llama_vocab* vocab_ = nullptr;
 };
 
+// Embedding model: a context in embeddings mode with mean pooling, so one
+// forward pass over the text yields a single sequence-level vector. Used by
+// the L2 semantic cache; separate from generation (a different context).
+class RealEmbedder : public arca::Embedder {
+public:
+    RealEmbedder(const std::string& path, int threads) {
+        ensure_backend_init();
+        llama_model_params mp = llama_model_default_params();
+        mp.n_gpu_layers = 0;
+        model_ = llama_model_load_from_file(path.c_str(), mp);
+        if (model_ == nullptr)
+            throw ModelError("failed to load embedding model: " + path);
+
+        llama_context_params cp = llama_context_default_params();
+        cp.embeddings = true;
+        cp.pooling_type = LLAMA_POOLING_TYPE_MEAN;
+        cp.n_ctx = 512;
+        cp.n_batch = 512;
+        cp.n_threads = threads;
+        cp.n_threads_batch = threads;
+        ctx_ = llama_init_from_model(model_, cp);
+        if (ctx_ == nullptr) {
+            llama_model_free(model_);
+            throw ModelError("failed to create embedding context for: " + path);
+        }
+        vocab_ = llama_model_get_vocab(model_);
+        n_embd_ = llama_model_n_embd(model_);
+    }
+
+    ~RealEmbedder() override {
+        if (ctx_ != nullptr) llama_free(ctx_);
+        if (model_ != nullptr) llama_model_free(model_);
+    }
+
+    RealEmbedder(const RealEmbedder&) = delete;
+    RealEmbedder& operator=(const RealEmbedder&) = delete;
+
+    std::vector<float> embed(const std::string& text) override {
+        std::vector<llama_token> toks = tokenize(text);
+        if (toks.empty()) toks.push_back(llama_vocab_bos(vocab_));
+        const auto n_ctx = 512;
+        if (static_cast<int>(toks.size()) > n_ctx)
+            toks.resize(n_ctx);  // truncate long inputs to the embed window
+
+        // Fresh sequence per call.
+        llama_memory_seq_rm(llama_get_memory(ctx_), 0, -1, -1);
+
+        const auto n = static_cast<int32_t>(toks.size());
+        llama_batch batch = llama_batch_init(n, /*embd=*/0, /*n_seq_max=*/1);
+        batch.n_tokens = n;
+        for (int32_t i = 0; i < n; ++i) {
+            batch.token[i] = toks[static_cast<std::size_t>(i)];
+            batch.pos[i] = i;
+            batch.n_seq_id[i] = 1;
+            batch.seq_id[i][0] = 0;
+            batch.logits[i] = 1;  // pooling needs every token's output
+        }
+        const int32_t rc = llama_decode(ctx_, batch);
+        llama_batch_free(batch);
+        if (rc != 0)
+            throw ModelError("embedding decode failed with status " +
+                             std::to_string(rc));
+
+        const float* emb = llama_get_embeddings_seq(ctx_, 0);
+        if (emb == nullptr)
+            throw ModelError("no pooled embedding returned");
+        std::vector<float> out(emb, emb + n_embd_);
+
+        // L2-normalize so cosine similarity is a plain dot product.
+        double norm = 0.0;
+        for (float v : out) norm += static_cast<double>(v) * v;
+        norm = std::sqrt(norm);
+        if (norm > 0.0)
+            for (float& v : out) v = static_cast<float>(v / norm);
+        return out;
+    }
+
+private:
+    std::vector<llama_token> tokenize(const std::string& text) {
+        const auto len = static_cast<int32_t>(text.size());
+        int32_t n = llama_tokenize(vocab_, text.c_str(), len, nullptr, 0,
+                                   /*add_special=*/true, /*parse_special=*/false);
+        if (n == 0) return {};
+        if (n < 0) n = -n;
+        std::vector<llama_token> toks(static_cast<std::size_t>(n));
+        const int32_t w = llama_tokenize(vocab_, text.c_str(), len, toks.data(),
+                                         n, true, false);
+        if (w < 0) throw ModelError("embedding tokenization failed");
+        toks.resize(static_cast<std::size_t>(w));
+        return toks;
+    }
+
+    llama_model* model_ = nullptr;
+    llama_context* ctx_ = nullptr;
+    const llama_vocab* vocab_ = nullptr;
+    int n_embd_ = 0;
+};
+
 }  // namespace
 
 std::unique_ptr<LlamaBackend> make_llama_backend(const ModelParams& params) {
     return std::make_unique<RealLlamaBackend>(params);
 }
+
+namespace arca {
+std::unique_ptr<Embedder> make_llama_embedder(const std::string& model_path,
+                                              int threads) {
+    return std::make_unique<RealEmbedder>(model_path, threads);
+}
+}  // namespace arca
 
 }  // namespace reame

@@ -19,6 +19,7 @@ add_executable(reame_tests
     unit/test_conclave.cpp
     unit/test_resp.cpp
     unit/test_arca.cpp
+    unit/test_arca_server.cpp
     unit/test_speculative.cpp
     unit/test_prompt_lookup.cpp
     unit/test_form_draft.cpp

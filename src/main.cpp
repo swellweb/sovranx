@@ -23,6 +23,7 @@
 #include <condition_variable>
 #include <mutex>
 
+#include "reame/arca/server.hpp"
 #include "reame/server/http_server.hpp"
 #endif
 
@@ -216,6 +217,50 @@ int run_zeroconfig(int argc, char** argv) {
     }
 }
 
+// `reame arca [--port N] [--dir PATH] [--max-mb N]` — the shared memory
+// daemon. Speaks the Redis protocol, so any Redis client reaches it.
+int run_arca(int argc, char** argv) {
+#ifdef REAME_WITH_SERVER
+    reame::Logger log(std::cout, reame::LogLevel::Info);
+    reame::arca::ArcaServer::Config cfg;
+    cfg.port = 6420;
+    cfg.directory = home_dir() + "/.reame/arca";
+    for (int i = 2; i < argc; ++i) {
+        const std::string a = argv[i];
+        if ((a == "--port" || a == "--dir" || a == "--max-mb") &&
+            i + 1 < argc) {
+            const std::string v = argv[++i];
+            if (a == "--port") cfg.port = std::stoi(v);
+            else if (a == "--dir") cfg.directory = v;
+            else cfg.max_bytes = std::stoull(v) * 1024ull * 1024ull;
+        }
+    }
+    std::filesystem::create_directories(cfg.directory);
+    try {
+        reame::arca::ArcaServer server(cfg);
+        server.start();
+        log.info("ARCA listening on 127.0.0.1:" +
+                 std::to_string(server.port()) + " (dir " +
+                 cfg.directory.string() + ") — talk to it with any Redis "
+                 "client. Ctrl-C to stop.");
+        std::signal(SIGINT, request_shutdown);
+        std::signal(SIGTERM, request_shutdown);
+        std::unique_lock<std::mutex> lock(g_shutdown_mutex);
+        g_shutdown_cv.wait(lock, [] { return g_shutdown; });
+        server.stop();
+        return EXIT_SUCCESS;
+    } catch (const std::exception& e) {
+        log.error(std::string("ARCA failed to start: ") + e.what());
+        return EXIT_FAILURE;
+    }
+#else
+    (void)argc;
+    (void)argv;
+    std::cerr << "this build has no server support (ARCA needs it)\n";
+    return EXIT_FAILURE;
+#endif
+}
+
 int list_models() {
     std::cout << "Built-in models (reame run <name>):\n\n";
     for (const auto& m : reame::core::model_catalog())
@@ -232,6 +277,7 @@ int main(int argc, char** argv) {
         const std::string sub = argv[1];
         if (sub == "run") return run_zeroconfig(argc, argv);
         if (sub == "list") return list_models();
+        if (sub == "arca") return run_arca(argc, argv);
     }
 
     std::string config_path = "config/reame.conf";

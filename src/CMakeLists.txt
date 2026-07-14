@@ -62,6 +62,7 @@ if(REAME_BUILD_SERVER)
         server/http_parser.cpp
         server/api_handler.cpp
         server/http_server.cpp
+        arca/server.cpp
     )
     target_include_directories(reame_server PUBLIC ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(reame_server

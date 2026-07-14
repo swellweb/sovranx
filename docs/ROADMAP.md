@@ -31,10 +31,11 @@ The engine and its memory are done and public (MIT, CI on Linux + macOS,
 
 The memory layer is the moat. Finish it.
 
-1. **Warm-ahead prefill** — a background worker prefills documents *before*
-   anyone asks and stores the KV in ARCA; `POST /v1/warm` triggers it. This is
-   the big one: it moves prefill out of the user's wait entirely. On a document
-   the system has already digested, time-to-first-token drops to ~0.
+1. **Warm-ahead prefill** — ✅ *shipped*. `POST /v1/warm {"prompt": ...}`
+   prefills a document into the disk cache before anyone asks; the first real
+   request that shares that prefix skips the prefill. Measured: time-to-first-
+   token 20.6s → 3.4s (6.1×) on the Oracle free tier, 8.7s → 1.6s on an M3 Pro.
+   Next: store/share the warm KV across the fleet via ARCA L3.
 2. **ARCA L2 — semantic cache** — match *similar* questions, not just
    identical, via a small embedding model. Turns the exact-match cache into a
    fuzzy one; big for RAG and support workloads.

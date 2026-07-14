@@ -85,6 +85,8 @@ same model doing the naive thing.
 | Prompt-lookup speculation | Qwen2.5-1.5B, rewrite task | **1.44×** |
 | Draft-model speculation | 1.5B + 0.5B draft, Contabo | **3.2×** (87% acceptance) |
 | Conclave (shared prefill + early consensus) | 1.5B ×5, arithmetic quiz | wall **97s → ~50s** |
+| Warm-ahead (POST /v1/warm) | OLMoE, 1116-token doc pre-digested, Oracle free tier | TTFT **20.6s → 3.4s (6.1×)** |
+| Warm-ahead | same, M3 Pro | TTFT **8.7s → 1.6s (5.3×)** |
 
 ## Reame vs llama.cpp
 

@@ -58,7 +58,7 @@ TEST_CASE("catalog carries the judgment-capable pick (Qwen3.5-9B)") {
     // Measured on a real webpage audit (M3 Pro): correct alt-text
     // assessment, spotted an empty H2, no invented defects — where 1.5B
     // and OLMoE fabricated findings and a 30B-A3B miscounted. 9B is the
-    // smallest model we measured doing judgment tasks right.
+    // minimum that works for judgment tasks.
     const auto m = resolve_model("qwen3.5-9b");
     REQUIRE(m.has_value());
     CHECK(m->filename == "qwen3.5-9b-q4_k_m.gguf");

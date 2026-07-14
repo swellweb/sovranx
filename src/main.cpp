@@ -235,8 +235,15 @@ int run_arca(int argc, char** argv) {
             else cfg.max_bytes = std::stoull(v) * 1024ull * 1024ull;
         }
     }
-    std::filesystem::create_directories(cfg.directory);
     try {
+        std::error_code ec;
+        std::filesystem::create_directories(cfg.directory, ec);
+        if (ec) {
+            log.error("cannot create ARCA directory '" +
+                      cfg.directory.string() + "': " + ec.message() +
+                      " — pick a writable --dir");
+            return EXIT_FAILURE;
+        }
         reame::arca::ArcaServer server(cfg);
         server.start();
         log.info("ARCA listening on 127.0.0.1:" +

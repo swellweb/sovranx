@@ -2,6 +2,10 @@
   <img src="docs/figures/logo.svg" alt="Reame" width="300">
 </p>
 
+<p align="center">
+  <a href="https://swellweb.github.io/reame/"><b>▶ Try the live demo</b></a> — a real Reame instance serving an LLM from a free Oracle ARM box, in your browser.
+</p>
+
 **A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
 
 Reame is an inference server built for cheap CPU hardware first — not as a

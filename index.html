@@ -64,9 +64,10 @@
   <main>
     <h1>🏰 Reame — live CPU LLM demo</h1>
     <p class="sub">
-      A CPU-first inference server on llama.cpp, serving OLMoE (7B MoE, 1B
-      active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
-      <br>Each answer shows its latency. This is a demo, not a benchmark.
+      A CPU-first inference server on llama.cpp, serving Qwen3.5-9B from a free
+      Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
+      <br>Answers stream in as the CPU generates them — a 9B model on a free
+      ARM box takes a bit. This is a demo, not a benchmark.
     </p>
     <div id="status">checking backend…</div>
 
@@ -134,6 +135,15 @@
       }
     })();
 
+    // Remove <think>…</think> reasoning blocks (qwen3.5 emits them). Hides an
+    // unclosed trailing <think> too, so partial reasoning never shows.
+    function stripThink(raw) {
+      var s = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+      var open = s.lastIndexOf("<think>");
+      if (open !== -1) s = s.slice(0, open);
+      return s.trimStart();
+    }
+
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
       const message = input.value.trim();
@@ -144,6 +154,7 @@
 
       const botEl = addMsg("bot", "…");
       const started = performance.now();
+      let raw = "";
       try {
         const r = await fetch(REAME_ENDPOINT + "/v1/chat/completions", {
           method: "POST",
@@ -151,18 +162,43 @@
           body: JSON.stringify({
             model: "reame",
             messages: history,
-            max_tokens: 256,
+            max_tokens: 512,
             temperature: 0.7,
+            stream: true,
           }),
         });
         if (!r.ok) throw new Error("HTTP " + r.status);
-        const data = await r.json();
-        const answer = data.choices[0].message.content;
-        const ms = Math.round(performance.now() - started);
-        botEl.textContent = answer;
+
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop(); // keep incomplete line
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith("data:")) continue;
+            const payload = t.slice(5).trim();
+            if (payload === "[DONE]") continue;
+            try {
+              const delta = JSON.parse(payload).choices[0].delta.content || "";
+              raw += delta;
+            } catch (_) { /* ignore keep-alives */ }
+          }
+          const shown = stripThink(raw);
+          botEl.textContent = shown || "…thinking…";
+          chat.scrollTop = chat.scrollHeight;
+        }
+
+        const answer = stripThink(raw);
+        const secs = ((performance.now() - started) / 1000).toFixed(1);
+        botEl.textContent = answer || "(no answer)";
         const meta = document.createElement("div");
         meta.className = "meta";
-        meta.textContent = "answered in " + ms + " ms";
+        meta.textContent = "answered in " + secs + " s";
         botEl.appendChild(meta);
         history.push({ role: "assistant", content: answer });
       } catch (err) {

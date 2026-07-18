@@ -88,6 +88,7 @@ including the negative results that shaped the design.
 | Highlight | Measured | Machine |
 |---|---|---|
 | MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, same 8/8 accuracy | Oracle free (€0) |
+| Active params, not total size | Marco-Nano 8B-A0.6B **46.2 tok/s** — 3.2× a 3B dense (14.3 tok/s) while bigger on disk | Oracle free (€0) |
 | Warm cache vs cold | **4.8× end-to-end** | Contabo VPS |
 | Generation archive (Palimpsest) | **2.3×** (22→51 tok/s) | M3 Pro |
 | Judgment without hallucinating | Qwen3.5-9B: **zero invented findings**, full SEO audit in 73s | M3 Pro |

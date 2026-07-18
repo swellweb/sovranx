@@ -30,7 +30,9 @@ whole ballgame.
 
 | Machine | Model | Type | Decode | Verdict |
 |---|---|---|---|---|
+| Oracle free (4 core) | Marco-Nano 8B-A0.6B | MoE, 0.6B active | **46.2 tok/s** | fastest here; multilingual |
 | Oracle free (4 core) | OLMoE 7B-A1B | MoE, 1B active | **26.7 tok/s** | the live-serving pick |
+| Oracle free (4 core) | Qwen2.5-3B | dense | 14.3 tok/s | dense reference point |
 | Oracle free (2 core) | Qwen2.5-7B | dense | 3.3 tok/s | superseded by OLMoE |
 | Oracle free | TriLM 3.9B TQ2_0 | dense ternary | ~10 tok/s | 1.1 GB RAM total |
 | Oracle free (4 core) | Qwen3-30B-A3B | MoE, 3B active | ~335 s/question | batch only |
@@ -44,6 +46,38 @@ whole ballgame.
 Community recommendations get tested too: Ornith-1.0-9B (an HN-suggested
 finetune of Qwen3.5-9B) runs at 5.4 tok/s on the free tier — the same base as
 the judgment pick, and a genuinely usable 9B for reasoning batches on a €0 box.
+
+**Fewer active parameters, faster decode — measured in one sitting.** The three
+rows below were taken back-to-back on the same 4-core Oracle box, same prompt,
+same two-run method, so the ratios are apples-to-apples:
+
+| Model | Active params | Decode (same session) |
+|---|---|---|
+| Marco-Nano 8B-A0.6B | 0.6B | 46.2 tok/s |
+| OLMoE 7B-A1B | 1B | 33.5 tok/s |
+| Qwen2.5-3B | 3B (dense) | 14.3 tok/s |
+
+Active parameter count predicts decode speed better than total size: an 8B MoE
+touching 0.6B/token outruns a 3B dense model by 3.2×, despite being larger on
+disk. Note the honest wrinkle: OLMoE measured **33.5 tok/s** in this session
+versus the **26.7 tok/s** published above from an earlier one. Same box, same
+method, different day — that spread is the run-to-run variance you should
+expect on a shared cloud instance. Trust the ratios within a session more than
+absolute numbers across sessions.
+
+**Language coverage is a real axis, not a footnote.** OLMoE is English-centric:
+asked in Italian it code-switches mid-sentence and drops English words into the
+answer. Marco-Nano (a multilingual MoE) answers the same prompts in fluent
+Italian. For a public demo that non-English speakers will poke at, that matters
+as much as tok/s. Neither model is a knowledge oracle: asked for a carbonara
+recipe, Marco-Nano stays plausible (guanciale, no onion) but still suggests
+optional cream, which a dense Qwen3.5-9B correctly refuses. Small models on CPU
+are for narrow work over supplied context, not for recall.
+
+**Not tested: Marco-Mini 17.3B-A0.86B.** The larger sibling has no public GGUF
+quantization at the time of writing, so it cannot be loaded by llama.cpp
+without converting the weights first. Listed here so the gap is visible rather
+than silently omitted.
 
 Read the two extremes together: OLMoE (7B total, 1B active) serves at 26.7
 tok/s, while Qwen3.6-27B (dense) crawls at ~0.1 tok/s on the same box — a

@@ -64,10 +64,10 @@
   <main>
     <h1>🏰 Reame — live CPU LLM demo</h1>
     <p class="sub">
-      A CPU-first inference server on llama.cpp, serving OLMoE (7B MoE, 1B
-      active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
-      <br>A 7B MoE runs fast on CPU (~25 tok/s here) — most answers land in a
-      few seconds. This is a demo, not a benchmark.
+      A CPU-first inference server on llama.cpp, serving Marco-Nano (8B MoE,
+      0.6B active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
+      <br>Only 0.6B parameters are read per token, so it decodes at ~46 tok/s on
+      4 ARM cores — answers land in seconds. A demo, not a benchmark.
     </p>
     <div id="status">checking backend…</div>
 
